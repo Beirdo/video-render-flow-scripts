@@ -16,6 +16,12 @@ group.add_argument("--audio", '-a', action="store_const", const="audio",
 group.add_argument("--halfsize", '-H', action="store_const", const="halfsize",
                    dest="action",
                    help="Return resolution of half-size video (approx)")
+group.add_argument("--height", '-Y', action="store_const", const="height",
+                   dest="action",
+                   help="Return height of half-size video (approx)")
+group.add_argument("--width", '-X', action="store_const", const="width",
+                   dest="action",
+                   help="Return width of half-size video (approx)")
 group.add_argument("--framerate", '-F', action="store_const", const="framerate",
                    dest="action", help="Return video framerate")
 group.add_argument("--dump", '-d', action="store_const", const="dump",
@@ -47,6 +53,18 @@ for track in media_info.tracks:
             width = int(track.width / 2)
             height = int(track.height / 2)
             print("%sx%s" % (width, height))
+            sys.exit(0)
+
+    if action == "height":
+        if track.track_type == 'Video':
+            height = int(track.height / 2)
+            print("%s" % height)
+            sys.exit(0)
+
+    if action == "width":
+        if track.track_type == 'Video':
+            width = int(track.width / 2)
+            print("%s" % width)
             sys.exit(0)
 
     if action == "framerate":

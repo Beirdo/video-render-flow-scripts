@@ -2,27 +2,44 @@
 # vim:ts=4:sw=4:ai:et:si:sts=4
 
 import argparse
-import sys
-import os
 import json
+import logging
+import os
+import sys
 
-from pymediainfo import MediaInfo
 from ffmpy import FFmpeg
+from pymediainfo import MediaInfo
+
+FORMAT = "%(asctime)s: %(name)s:%(lineno)d (%(threadName)s) - %(levelname)s - %(message)s"
+logging.basicConfig(format=FORMAT)
+logging.getLogger(None).setLevel(logging.INFO)
+logging.captureWarnings(True)
+logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description="Convert video(s) to editable and proxy versions")
+parser.add_argument("--debug", '-d', action="store_true",
+                    help="Enable debugging")
 parser.add_argument("--session", '-s', action="store",
                     help="Name of editing session")
 parser.add_argument("--source", '-S', action="store",
                     help="Name of video source")
 parser.add_argument("--mjpeg", action="store_true",
                     help="Force a transcode to MJPEG during cleanup phase")
-parser.add_argument("--mpeg4", action="store_true",
+group = parser.add_mutually_exclusive_group()
+group.add_argument("--avi", action="store_true",
+                    help="Force a remuxing to AVI during cleanup phase")
+group.add_argument("--mpeg4", action="store_true",
                     help="Force a remuxing to MPEG4 during cleanup phase")
+group.add_argument("--mkv", action="store_true",
+                    help="Force a remuxing to Matroska during cleanup phase")
 parser.add_argument("--nodelete", action="store_false", dest="delete",
                     help="Don't delete intermediate files")
 parser.add_argument("files", nargs=argparse.REMAINDER,
                     help="Video filenames")
 args = parser.parse_args()
+
+if args.debug:
+    logging.getLogger(None).setLevel(logging.DEBUG)
 
 curdir = os.path.realpath(os.path.curdir)
 parts = curdir.split('/')
@@ -35,20 +52,23 @@ if not args.source:
 
 parts[-2] = "edit"
 editdir = "/".join(parts)
+os.makedirs(editdir, 0o755, exist_ok=True)
+logging.info("Editable directory: %s" % editdir)
 
 parts[-2] = "proxy"
 proxydir = "/".join(parts)
-
-os.makedirs(editdir, 0o755, exist_ok=True)
 os.makedirs(proxydir, 0o755, exist_ok=True)
+logging.info("Proxy edit directory: %s" % proxydir)
 
 for file_ in args.files:
     cleanupfiles = []
     mediaInfo = MediaInfo.parse(file_)
     (basename, _) = os.path.splitext(os.path.basename(file_))
     infile = os.path.realpath(os.path.join(curdir, file_))
+    logging.info("Converting file %s" % infile)
 
     for track in mediaInfo.tracks:
+        logger.debug("Track type: %s: %s" % (track.track_type, json.dumps(track.to_data(), indent=2)))
         if track.track_type == 'Video':
             videoCodec = track.codec
             videoWidth = track.width
@@ -63,16 +83,18 @@ for file_ in args.files:
     outext = None
     outcodecs = {"v": "copy", "a": "copy"}
     outargs = ""
-    if args.mjpeg or videoFrameRate not in [30, 29.97]:
-        outext = "mp4"
+    if args.mjpeg or (videoFrameRate not in [30, 29.97]):
+        outext = "avi"
         outcodecs['v'] = "mjpeg"
-        outargs = "-q:v 2 -r:v 30 -vsync vfr"
+        outargs = "-copyts -q:v 2 -pix_fmt:v yuvj420p -r:v 30 -vsync vfr"
         videoCodec = "MJPEG"
-    elif videoCodec in ["DV"]:
+    if args.mkv:
+        outext = "int.mkv"
+    if args.avi or videoCodec in ["DV"]:
         # If this is raw DV, copy into an AVI first, MP4 can't handle DV
         # video
         outext = "avi"
-    elif args.mpeg4:
+    if args.mpeg4:
         # Remux to MP4 first to fix videos from the Toshiba Camileo X100
         # which have invalid timestamps in the video apparently
         outext = 'mp4'
@@ -84,9 +106,11 @@ for file_ in args.files:
             inputs={infile: "-hide_banner -y"},
             outputs={intfile: "%s %s" % (" ".join(outcodecs), outargs)}
         )
+        logger.info("Pass 1: %s" % ffmpeg.cmd)
         ffmpeg.run()
         cleanupfiles.append(intfile)
     else:
+        logger.info("Pass 1: skipped")
         intfile = infile
 
     # During the second pass, we convert all audio to 48kHz PCM to overcome an 
@@ -111,6 +135,7 @@ for file_ in args.files:
         inputs={intfile: "-hide_banner -y"},
         outputs={editfile: "%s %s" % (" ".join(outcodecs), " ".join(outargs))}
     )
+    logger.info("Pass 2: %s" % ffmpeg.cmd)
     ffmpeg.run()
 
     if args.delete:
@@ -129,4 +154,5 @@ for file_ in args.files:
         inputs={editfile: "-hide_banner -y"},
         outputs={proxyfile: "%s %s" % (" ".join(outcodecs), outargs)}
     )
+    logger.info("Pass 3: %s" % ffmpeg.cmd)
     ffmpeg.run()
