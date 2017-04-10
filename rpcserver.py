@@ -20,11 +20,13 @@ def execCommand(command):
     if not isinstance(command, list):
         command = command.split()
     try:
+        logger.info("Running %s" % " ".join(command))
         return check_output(command, shell=False, stderr=STDOUT).decode("utf-8")
     except CalledProcessError as e:
         message = "Command: %s returned %s" % (e.cmd, e.returncode)
         if e.output:
             message += "\n\nOutput: %s" % e.output.decode("utf-8")
+        logger.error(message)
         raise Exception(message)
 
 def get_remote_ip(remoteIP=None):
@@ -82,7 +84,7 @@ def convert_inputs(project, files=None, factor=0.5):
 
     output = ""
     for file_ in files:
-        command = ["echo", "convert_gstream.sh", "--factor", str(factor), file_]
+        command = ["convert_gstream.sh", "--factor", str(factor), file_]
         output += "\n\n"
         output += execCommand(command)
 

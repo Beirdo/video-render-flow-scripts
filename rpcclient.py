@@ -3,6 +3,7 @@
 
 import argparse
 import logging
+import json
 from flask_jsonrpc.proxy import ServiceProxy
 import os
 import sys
@@ -169,4 +170,8 @@ params = parameters[progname].get('params', [])
 apiparams = {param: getattr(args, param) for param in params}
 response = apifunc(**apiparams)
 
-print(response)
+output = response.get("result", None)
+if output:
+    response['result'] = ""
+    print(output)
+print(json.dumps(response, indent=2))
