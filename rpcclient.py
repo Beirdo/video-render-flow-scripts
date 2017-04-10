@@ -14,6 +14,15 @@ logging.getLogger(None).setLevel(logging.INFO)
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
 
+progname = os.path.basename(sys.argv[0])
+if progname == "rpcclient.py" or progname == "common" or len(progname) < 7:
+    logger.error("This must be run via a symlink")
+    sys.exit(1)
+
+# Strip the video_ off the beginning
+progname = progname[6:]
+
+nonProjectMethods = ["poll", "list_outstanding"]
 parameters = {
     "common": {
         "arguments": [
@@ -28,6 +37,7 @@ parameters = {
                 "args": ["--project", "-p"],
                 "kwargs": {
                     "action": "store",
+                    "required": progname not in nonProjectMethods,
                     "help": "Video project to upload",
                 }
             },
@@ -138,6 +148,12 @@ parameters = {
                 }
             }
         ]
+    },
+    "list_outstanding": {
+        "description": "List outstanding tasks",
+        "params": [],
+        "arguments": [
+        ]
     }
 }
 
@@ -150,14 +166,6 @@ def add_parser_args(parser, progname):
         args = arg.get('args', [])
         kwargs = arg.get('kwargs', {})
         parser.add_argument(*args, **kwargs)
-
-progname = os.path.basename(sys.argv[0])
-if progname == "rpcclient.py" or progname == "common" or len(progname) < 7:
-    logger.error("This must be run via a symlink")
-    sys.exit(1)
-
-# Strip the video_ off the beginning
-progname = progname[6:]
 
 if progname not in parameters:
     logger.error("RPC service %s is not defined" % progname)
@@ -176,10 +184,6 @@ if args.debug:
 
 if hasattr(args, "files") and not args.files:
     args.files = []
-
-if not args.project and progname != "poll":
-    logging.error("You must include --project")
-    sys.exit(1)
 
 apiurl = "http://%s:5000/api" % args.serverIP
 logger.info("Using service at %s" % apiurl)
