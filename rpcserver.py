@@ -12,6 +12,7 @@ import json
 from subprocess import check_output, STDOUT, CalledProcessError
 from bs4 import BeautifulSoup
 from threading import Thread
+from queue import Queue
 
 FORMAT = "%(asctime)s: %(name)s:%(lineno)d (%(threadName)s) - %(levelname)s - %(message)s"
 logging.basicConfig(format=FORMAT)
@@ -19,6 +20,8 @@ logging.getLogger(None).setLevel(logging.INFO)
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
 
+requestQ = Queue()
+handlerThread = None
 handlers = {}
 
 def execCommand(command):
@@ -43,33 +46,44 @@ def get_remote_ip(remoteIP=None):
 
 
 class HandlerThread(Thread):
-    def __init__(self, method, args, id_):
+    def __init__(self, queue):
         Thread.__init__(self)
 
-        if not hasattr(self, method):
-            raise Exception("No thread handler exists for method %s" % method)
-
-        self.name = method
-        self.method = getattr(self, method)
-        self.args = args
-        self.id = id_
+        self.queue = queue
+        self.name = "handler_thread"
 
     def run(self):
         global handlers
-        data = {
-            "status": "in-progress",
-        }
-        handlers[self.id] = data
-        logger.info("Starting handler for method %s (id %s)" %
-                    (self.name, self.id))
-        try:
-            data['result'] = self.method(**self.args)
-        except Exception as e:
-            data['error'] = str(e)
 
-        data['status'] = "complete"
-        logger.info("Finishing handler for method %s (id %s)" %
-                    (self.name, self.id))
+        while True:
+            item = self.queue.get()
+
+            if not item:
+                continue
+
+            id_ = item.get('id', None)
+            method = item.get('method', None)
+            args = item.get('args', [])
+            if not id_ or not method:
+                continue
+
+            if id_ not in handlers:
+                handlers[id_] = {}
+            handlers[id_]['status'] = 'in-progress'
+            logger.info("Starting handler for method %s (id %s)" %
+                        (method, id_))
+            try:
+                if not hasattr(self, method):
+                    raise Exception("No thread handler exists for method %s" %
+                                    method)
+                methodFunc = getattr(self, method)
+                data['result'] = methodFunc(**args)
+            except Exception as e:
+                data['error'] = str(e)
+
+            data['status'] = "complete"
+            logger.info("Finishing handler for method %s (id %s)" %
+                        (method, id_))
 
     def upload_inputs(self, project, remoteIP=None, force=False):
         path = os.path.join("/opt/video/render/video", project, "input", "")
@@ -173,7 +187,7 @@ class HandlerThread(Thread):
                              HEIGHT="0", WIDTH="0", LAYERS="0", PROGRAM="-1",
                              FRAMERATE="0", VCODEC="h264.mp4", VIDEO_LENGTH="0",
                              SINGLE_FRAME="0", INTERLACE_AUTOFIX='1',
-                             INTERLACE_MODE="UNKNOWN", 
+                             INTERLACE_MODE="UNKNOWN",
                              INTERLACE_FIXMETHOD="SHIFT_UPONE",
                              REEL_NAME="cin0000", REEL_NUMBER="0", TCSTART="0",
                              TCEND="0", TCFORMAT="0")
@@ -203,9 +217,22 @@ def launch_thread(method, args):
     if not id_:
         raise Exception("No ID found, screw this")
 
-    t = HandlerThread(method, args, id_)
-    t.daemon = True
-    t.start()
+    data = {
+        "method": method,
+        "args": args,
+        "id": id_,
+    }
+    requestQ.put(data, block=False)
+
+    global handlers
+    handlers[id_] = {"status": "queued"}
+
+    global handlerThread
+    if not handlerThread:
+        handlerThread = HandlerThread(requestQ)
+        handlerThread.daemon = True
+        handlerThread.start()
+
     return "Please poll with id %s" % id_
 
 
@@ -292,6 +319,7 @@ def poll(id):
     handler = handlers[id]
     status = handler['status']
     if status == "complete":
+        del handlers[id]
         if "result" in handler:
             return handler['result']
         raise Exception(handler.get('error', "Unknown error"))
