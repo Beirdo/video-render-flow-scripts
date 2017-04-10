@@ -1,5 +1,11 @@
 #!/bin/bash -x
 
+FACTOR=0.5
+if [ "$1" == "--factor" ]; then
+    FACTOR=${2:-0.5}
+    shift 2
+fi
+
 for i in "$@"; do
     FULLFILE=$(realpath $i)
     BASEFILE=$(basename $i)
@@ -11,8 +17,8 @@ for i in "$@"; do
     PROXYDIR=${BASEDIR}/proxy/${SOURCE}
     mkdir -p ${EDITDIR} ${PROXYDIR}
 
-    PROXYHEIGHT=$(codec.py --height --file ${FULLFILE})
-    PROXYWIDTH=$(codec.py --width --file ${FULLFILE})
+    PROXYHEIGHT=$(codec.py --height --factor ${FACTOR} --file ${FULLFILE})
+    PROXYWIDTH=$(codec.py --width --factor ${FACTOR} --file ${FULLFILE})
 
     time \
     gst-launch-1.0 -t filesrc location=${FULLFILE} ! decodebin name=dec \
@@ -22,10 +28,10 @@ for i in "$@"; do
                audioresample ! audio/x-raw,rate=48000 ! audiorate ! \
                tee name=aud \
         vid. ! queue ! \
-             x264enc pass=quant quantizer=17 speed-preset=ultrafast name=vidA \
+             x264enc bitrate=10000 speed-preset=ultrafast name=vidA \
         vid. ! queue ! videoscale ! \
              video/x-raw,height=${PROXYHEIGHT},width=${PROXYWIDTH} ! \
-             x264enc pass=quant quantizer=19 speed-preset=ultrafast name=vidB \
+             x264enc bitrate=2000 speed-preset=ultrafast name=vidB \
         vidA. ! queue ! matroskamux name=muxA ! \
                 filesink location=${EDITDIR}/${BASEFILE}.mkv \
         vidB. ! queue ! matroskamux name=muxB ! \
@@ -33,4 +39,8 @@ for i in "$@"; do
         aud. ! queue ! muxA. \
         aud. ! queue ! muxB.
 done
+
+if [ -n "${BASEDIR}" ]; then
+    echo ${FACTOR} > ${BASEDIR}/proxy/factor.txt
+fi
 

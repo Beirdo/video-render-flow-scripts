@@ -28,6 +28,8 @@ group.add_argument("--dump", '-d', action="store_const", const="dump",
                    dest="action", help="Dump all codec information (in JSON)")
 parser.add_argument("--file", '-f', action="store", required=True,
                     help="Video filename")
+parser.add_argument("--factor", '-x', action="store", type=float, default=0.5,
+                    help="Proxy reduction factor")
 args = parser.parse_args()
 
 action = args.action
@@ -50,20 +52,20 @@ for track in media_info.tracks:
 
     if action == "halfsize":
         if track.track_type == 'Video':
-            width = int(track.width / 2)
-            height = int(track.height / 2)
+            width = int(track.width * args.factor)
+            height = int(track.height * args.factor)
             print("%sx%s" % (width, height))
             sys.exit(0)
 
     if action == "height":
         if track.track_type == 'Video':
-            height = int(track.height / 2)
+            height = int(track.height * args.factor)
             print("%s" % height)
             sys.exit(0)
 
     if action == "width":
         if track.track_type == 'Video':
-            width = int(track.width / 2)
+            width = int(track.width * args.factor)
             print("%s" % width)
             sys.exit(0)
 
