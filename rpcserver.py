@@ -14,8 +14,12 @@ from bs4 import BeautifulSoup
 from threading import Thread
 from queue import Queue
 
+basedir = os.path.realpath(os.path.join(os.path.dirname(sys.argv[0]), ".."))
+logdir = os.path.join(basedir, "logs")
+logfile = os.path.join(logdir, "rpcserver.log")
+
 FORMAT = "%(asctime)s: %(name)s:%(lineno)d (%(threadName)s) - %(levelname)s - %(message)s"
-logging.basicConfig(format=FORMAT)
+logging.basicConfig(filename=logfile, format=FORMAT)
 logging.getLogger(None).setLevel(logging.INFO)
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
@@ -336,4 +340,8 @@ def list_outstanding():
 
 
 if __name__ == '__main__':
+    logHandler = logging.StreamHandler()
+    logFormatter = logging.Formatter(fmt=FORMAT)
+    logHandler.setFormatter(logFormatter)
+    logging.getLogger(None).addHandler(logHandler)
     app.run(host='0.0.0.0', debug=False)
