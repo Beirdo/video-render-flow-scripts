@@ -70,7 +70,6 @@ def convert_inputs(project, files=None, factor=0.5):
     if not files:
         files = []
         for (root, dirs, files_) in os.walk(path):
-            print(root, dirs, files_)
             files.extend([os.path.join(root, file_) for file_ in files_])
     else:
         files = [os.path.join(path, file_) for file_ in files]
