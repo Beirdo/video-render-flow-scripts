@@ -69,7 +69,8 @@ class HandlerThread(Thread):
 
             if id_ not in handlers:
                 handlers[id_] = {}
-            handlers[id_]['status'] = 'in-progress'
+            data = handlers[id_]
+            data['status'] = 'in-progress'
             logger.info("Starting handler for method %s (id %s)" %
                         (method, id_))
             try:
@@ -222,6 +223,7 @@ def launch_thread(method, args):
         "args": args,
         "id": id_,
     }
+    logger.info("Queuing request for method %s (id %s)" % (method, id_))
     requestQ.put(data, block=False)
 
     global handlers
@@ -325,6 +327,12 @@ def poll(id):
         raise Exception(handler.get('error', "Unknown error"))
 
     return "status: %s" % status
+
+@jsonrpc.method("App.list_outstanding() -> Array", validate=True)
+def list_outstanding():
+    global handlers
+    logger.info("Listing outstanding tasks")
+    return list(handlers.keys())
 
 
 if __name__ == '__main__':
