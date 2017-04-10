@@ -28,7 +28,6 @@ parameters = {
                 "args": ["--project", "-p"],
                 "kwargs": {
                     "action": "store",
-                    "required": True,
                     "help": "Video project to upload",
                 }
             },
@@ -125,6 +124,20 @@ parameters = {
                 }
             }
         ]
+    },
+    "poll": {
+        "description": "Poll for completion of a task",
+        "params": ["id"],
+        "arguments": [
+            {
+                "args": ["--id", '-u'],
+                "kwargs": {
+                    "action": "store",
+                    "required": True,
+                    "help": "Set the id to poll for",
+                }
+            }
+        ]
     }
 }
 
@@ -139,9 +152,12 @@ def add_parser_args(parser, progname):
         parser.add_argument(*args, **kwargs)
 
 progname = os.path.basename(sys.argv[0])
-if progname == "rpcclient.py" or progname == "common":
+if progname == "rpcclient.py" or progname == "common" or len(progname) < 7:
     logger.error("This must be run via a symlink")
     sys.exit(1)
+
+# Strip the video_ off the beginning
+progname = progname[6:]
 
 if progname not in parameters:
     logger.error("RPC service %s is not defined" % progname)
@@ -160,6 +176,10 @@ if args.debug:
 
 if hasattr(args, "files") and not args.files:
     args.files = []
+
+if not args.project and progname != "poll":
+    logging.error("You must include --project")
+    sys.exit(1)
 
 apiurl = "http://%s:5000/api" % args.serverIP
 logger.info("Using service at %s" % apiurl)
