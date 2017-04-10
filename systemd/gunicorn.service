@@ -10,7 +10,7 @@ Group=users
 RuntimeDirectory=gunicorn
 WorkingDirectory=/opt/video/render/scripts
 ExecStart=/usr/bin/gunicorn3 --pid /run/gunicorn/pid   \
-          --bind unix:/run/gunicorn/socket rpcserver.app
+          --bind unix:/run/gunicorn/socket rpcserver:app
 ExecReload=/bin/kill -s HUP $MAINPID
 ExecStop=/bin/kill -s TERM $MAINPID
 PrivateTmp=true
