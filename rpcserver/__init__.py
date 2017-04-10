@@ -14,8 +14,7 @@ from bs4 import BeautifulSoup
 from threading import Thread
 from queue import Queue
 
-basedir = os.path.realpath(os.path.join(os.path.dirname(sys.argv[0]), ".."))
-logdir = os.path.join(basedir, "logs")
+logdir = "/opt/video/render/logs"
 logfile = os.path.join(logdir, "rpcserver.log")
 
 FORMAT = "%(asctime)s: %(name)s:%(lineno)d (%(threadName)s) - %(levelname)s - %(message)s"
