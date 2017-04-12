@@ -6,23 +6,26 @@ if [ "$1" == "--help" ]; then
 fi
 
 VIDDEVICE=${1:-/dev/video1}
-AUDDEVICE="alsa_card.usb-Etron_Technology__Inc._USB2.0_Camera-02.analog-mono"
-OUTDIR=/opt/video/render/rawinputs
+# This microphone in the microscope doesn't seem to do squat
+#AUDDEVICE="alsa_input.usb-Etron_Technology__Inc._USB2.0_Camera-02.analog-mono"
+# Use the laptop's builtin mic
+AUDDEVICE="alsa_input.pci-0000_00_1b.0.analog-stereo"
+OUTDIR=/opt/video/render/rawinput
 FILENAME=microscope-$(date +%F-%T).mkv
 
-VIEWWIDTH=${2:-320}
-VIEWHEIGHT=${3:-240}
+VIEWWIDTH=${2:-640}
+VIEWHEIGHT=${3:-480}
+VIEWRATE=${4:-15/1}
 
-gst-launch-1.0 -t \
-    v4l2src device=$VIDDEVICE ! \
+gst-launch-1.0 -tvm \
+    v4l2src device="$VIDDEVICE" typefind=true ! \
         video/x-raw,format=YUY2,framerate=30/1,width=640,height=480 ! \
         tee name=vid \
     pulsesrc device="$AUDDEVICE" ! \
-	audio/x-raw,format=S16LE,rate=48000,channels=1 ! audioconvert ! \
         audio/x-raw,format=S16LE,rate=48000,channels=2 ! queue name=audioq \
-    vid. ! videorate ! video/x-raw,framerate=5 ! \
+    vid. ! queue ! videorate ! video/x-raw,framerate=$VIEWRATE ! \
         videoscale ! video/x-raw,width=$VIEWWIDTH,height=$VIEWHEIGHT ! \
-        xvimagesink \
+        videoconvert ! xvimagesink \
     vid. ! queue ! videoconvert ! \
         x264enc bitrate=3000 speed-preset=ultrafast ! queue name=videoq \
     videoq. ! matroskamux name=mux ! filesink location=${OUTDIR}/${FILENAME} \
