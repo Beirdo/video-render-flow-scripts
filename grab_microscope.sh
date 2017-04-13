@@ -12,9 +12,9 @@ AUDDEVICE="alsa_input.pci-0000_00_1b.0.analog-stereo"
 OUTDIR=/opt/video/render/rawinput
 FILENAME=microscope-$(date +%F-%T).mkv
 
-VIEWWIDTH=${2:-640}
-VIEWHEIGHT=${3:-480}
-VIEWRATE=${4:-15/1}
+VIEWWIDTH=${1:-640}
+VIEWHEIGHT=${2:-480}
+VIEWRATE=${3:-15/1}
 
 gst-launch-1.0 -ve \
     v4l2src device="$VIDDEVICE" typefind=true ! \
