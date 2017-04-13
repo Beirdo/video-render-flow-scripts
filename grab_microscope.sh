@@ -1,11 +1,10 @@
 #!/bin/bash -x
 
-if [ "$1" == "--help" ]; then
-    v4l2-ctl --list-devices
-    exit 0
+VIDDEVICE=$(find_video_dev.py "USB2.0 Camera")
+if [ $? -ne 0 ]; then
+    exit 1
 fi
 
-VIDDEVICE=${1:-/dev/video1}
 # This microphone in the microscope doesn't seem to do squat
 #AUDDEVICE="alsa_input.usb-Etron_Technology__Inc._USB2.0_Camera-02.analog-mono"
 # Use the laptop's builtin mic

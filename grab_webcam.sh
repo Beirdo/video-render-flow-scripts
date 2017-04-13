@@ -1,17 +1,16 @@
 #!/bin/bash -x
 
-if [ "$1" == "--help" ]; then
-    v4l2-ctl --list-devices
-    exit 0
-fi
-
 HEADSET=
 if [ "$1" == "--headset" ]; then
     HEADSET="1"
     shift 1
 fi
 
-VIDDEVICE=${1:-/dev/video0}
+VIDDEVICE=$(find_video_dev.py "HD Pro Webcam C920")
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
 AUDDEVICE="alsa_input.usb-046d_HD_Pro_Webcam_C920_4BB47EAF-02.analog-stereo"
 if [ -n "$HEADSET" ]; then
     AUDDEVICE="alsa_input.usb-Logitech_Inc_Logitech_USB_Headset_H540_00000000-00.analog-stereo"
@@ -19,9 +18,9 @@ fi
 OUTDIR=/opt/video/render/rawinput
 FILENAME=webcam-$(date +%F-%T).mkv
 
-VIEWWIDTH=${2:-800}
-VIEWHEIGHT=${3:-448}
-VIEWRATE=${4:-15/1}
+VIEWWIDTH=${1:-800}
+VIEWHEIGHT=${2:-448}
+VIEWRATE=${3:-15/1}
 
 export GST_PLUGIN_PATH=/usr/local/lib/gstreamer-1.0
 
