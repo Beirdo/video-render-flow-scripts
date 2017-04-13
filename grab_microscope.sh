@@ -17,7 +17,7 @@ VIEWWIDTH=${2:-640}
 VIEWHEIGHT=${3:-480}
 VIEWRATE=${4:-15/1}
 
-gst-launch-1.0 -tvm \
+gst-launch-1.0 -ve \
     v4l2src device="$VIDDEVICE" typefind=true ! \
         video/x-raw,format=YUY2,framerate=30/1,width=640,height=480 ! \
         tee name=vid \
