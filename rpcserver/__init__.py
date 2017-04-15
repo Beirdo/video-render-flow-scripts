@@ -241,7 +241,7 @@ class HandlerThread(Thread):
             command = ["cin", "-r", batchfile]
             output += execCommand(command)
         elif mode == 'pitivi':
-            command = ["render_pitivi.sh", edlfile, outfile]
+            command = ["render_pitivi.sh", edlfile, outputfile]
             output += execCommand(command)
 
         return output
@@ -278,6 +278,7 @@ path = os.environ.get("PATH", "")
 if path:
     path += ":"
 path += scriptpath
+path += ":/opt/video/render/scripts"
 os.environ['PATH'] = path
 
 app = Flask(__name__)
