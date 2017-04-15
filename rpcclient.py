@@ -183,7 +183,7 @@ parameters = {
                 }
             },
             {
-                "args": ["--title", "-t"].
+                "args": ["--title", "-t"],
                 "kwargs": {
                     "action": "store",
                     "required": True,
@@ -191,7 +191,7 @@ parameters = {
                 }
             },
             {
-                "args": ["--description", "-D"].
+                "args": ["--description", "-D"],
                 "kwargs": {
                     "action": "store",
                     "required": True,
@@ -199,7 +199,7 @@ parameters = {
                 }
             },
             {
-                "args": ["--category", "-c"].
+                "args": ["--category", "-c"],
                 "kwargs": {
                     "action": "store",
                     "default": 28,
@@ -208,7 +208,7 @@ parameters = {
                 }
             },
             {
-                "args": ["--keywords", "-k"].
+                "args": ["--keywords", "-k"],
                 "kwargs": {
                     "action": "store",
                     "required": True,
