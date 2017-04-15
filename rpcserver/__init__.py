@@ -130,88 +130,114 @@ class HandlerThread(Thread):
             command.insert(2, "--delete")
         return execCommand(command)
 
-    def upload_proxy_edl(self, project, edlfile="edl.xml", remoteIP=None):
+    def download_editables(self, project, remoteIP=None, force=False):
+        path = os.path.join("/opt/video/render/video", project, "edit", "")
+        command = ["rsync", "-avt", path, "%s:%s" % (remoteIP, path)]
+        if force:
+            command.insert(2, "--delete")
+        return execCommand(command)
+
+    def upload_edl(self, project, edlfile="edl.xges", remoteIP=None):
+        path = os.path.join("/opt/video/render/video", project, "edit",
+                            edlfile)
+        command = ["rsync", "-avt", "%s:%s" % (remoteIP, path), path]
+        return execCommand(command)
+
+    def upload_proxy_edl(self, project, edlfile="edl.xges", remoteIP=None):
         path = os.path.join("/opt/video/render/video", project, "proxy",
                             edlfile)
         command = ["rsync", "-avt", "%s:%s" % (remoteIP, path), path]
         return execCommand(command)
 
-    def render_edl(self, project, edlfile="edl.xml", outfile="output.mp4"):
-        path = os.path.join("/opt/video/render/video", project, "proxy",
-                            "factor.txt")
-        if not os.path.exists(path):
-            factor = 0.5
-        else:
-            with open(path, "r") as f:
-                data = f.read()
-            factor = float(data.strip())
+    def render_edl(self, project, edlfile="edl.xges", outfile="output.mp4",
+                   proxy=False, mode="pitivi"):
+        if proxy:
+            path = os.path.join("/opt/video/render/video", project, "proxy",
+                                "factor.txt")
+            if not os.path.exists(path):
+                factor = 0.5
+            else:
+                with open(path, "r") as f:
+                    data = f.read()
+                factor = float(data.strip())
 
-        proxypath = os.path.join("/opt/video/render/video", project, "proxy")
+            proxypath = os.path.join("/opt/video/render/video", project,
+                                     "proxy")
+            inedlfile = os.path.join(proxypath, edlfile)
+
         editpath = os.path.join("/opt/video/render/video", project, "edit")
         outputpath = os.path.join("/opt/video/render/video", project, "output")
         os.makedirs(outputpath, 0o755, exist_ok=True)
 
-        inedlfile = os.path.join(proxypath, edlfile)
         edlfile = os.path.join(editpath, edlfile)
         batchfile = os.path.join(editpath, "batchlist.xml")
         outputfile = os.path.join(outputpath, outfile)
 
         output = ""
 
-        # Copy the EDL file from proxy -> edit
-        shutil.copy(inedlfile, edlfile)
+        if mode == 'cinelerra':
+            if proxy:
+                # Copy the EDL file from proxy -> edit
+                shutil.copy(inedlfile, edlfile)
 
-        # Convert the EDL file to remove the proxy factor, convert filenames
-        command = ["proxychange.py", edlfile, "-f", "%s/(.*)$" % proxypath,
-                   "-t", "%s/\\1" % editpath, "-s", str(factor), "-v", "-a"]
-        output += execCommand(command)
+                # Convert the EDL file to remove the proxy factor,
+                # convert filenames
+                command = ["cinelerra-proxychange.py", edlfile, "-f",
+                           "%s/(.*)$" % proxypath, "-t", "%s/\\1" % editpath,
+                           "-s", str(factor), "-v", "-a"]
+                output += execCommand(command)
 
-        # Create the batchfile
-        soup = BeautifulSoup("", "xml")
-        jobs = soup.new_tag("JOBS", WARN="1")
-        soup.append(jobs)
-        job = soup.new_tag("JOB", EDL_PATH=edlfile, STRATEGY="0", ENABLED="1",
-                           ELAPSED="0")
-        jobs.append(job)
-        asset = soup.new_tag("ASSET", SRC=outputfile)
-        job.append(asset)
-        folder = soup.new_tag("FOLDER", NUMBER="6")
-        folder.string = ""
-        asset.append(folder)
-        format_ = soup.new_tag("FORMAT", TYPE="FFMPEG", USE_HEADER="1",
-                               FFORMAT="mp4")
-        format_.string = ""
-        asset.append(format_)
-        audio = soup.new_tag("AUDIO", CHANNELS="2", RATE="48000", BITS="16",
-                             BYTE_ORDER="1", SIGNED="1", HEADER="0", DITHER="0",
-                             ACODEC="h265.mp4", AUDIO_LENGTH="0")
-        audio.string = ""
-        asset.append(audio)
-        video = soup.new_tag("VIDEO", ACTUAL_HEIGHT="0", ACTUAL_WIDTH="0",
-                             HEIGHT="0", WIDTH="0", LAYERS="0", PROGRAM="-1",
-                             FRAMERATE="0", VCODEC="h264.mp4", VIDEO_LENGTH="0",
-                             SINGLE_FRAME="0", INTERLACE_AUTOFIX='1',
-                             INTERLACE_MODE="UNKNOWN",
-                             INTERLACE_FIXMETHOD="SHIFT_UPONE",
-                             REEL_NAME="cin0000", REEL_NUMBER="0", TCSTART="0",
-                             TCEND="0", TCFORMAT="0")
-        video.string = ""
-        asset.append(video)
-        job.append("PATH %s" % outputfile)
-        job.append("AUDIO_CODEC h265.mp4")
-        job.append("VIDEO_CODEC h264.mp4")
-        job.append("FF_AUDIO_OPTIONS strict -2")
-        job.append("FF_AUDIO_BITRATE 0")
-        job.append("FF_VIDEO_OPTIONS crf=17")
-        job.append("FF_VIDEO_BITRATE 0")
-        job.append("FF_VIDEO_QUALITY -1")
+            # Create the batchfile
+            soup = BeautifulSoup("", "xml")
+            jobs = soup.new_tag("JOBS", WARN="1")
+            soup.append(jobs)
+            job = soup.new_tag("JOB", EDL_PATH=edlfile, STRATEGY="0",
+                               ENABLED="1", ELAPSED="0")
+            jobs.append(job)
+            asset = soup.new_tag("ASSET", SRC=outputfile)
+            job.append(asset)
+            folder = soup.new_tag("FOLDER", NUMBER="6")
+            folder.string = ""
+            asset.append(folder)
+            format_ = soup.new_tag("FORMAT", TYPE="FFMPEG", USE_HEADER="1",
+                                   FFORMAT="mp4")
+            format_.string = ""
+            asset.append(format_)
+            audio = soup.new_tag("AUDIO", CHANNELS="2", RATE="48000", BITS="16",
+                                 BYTE_ORDER="1", SIGNED="1", HEADER="0",
+                                 DITHER="0", ACODEC="h265.mp4",
+                                 AUDIO_LENGTH="0")
+            audio.string = ""
+            asset.append(audio)
+            video = soup.new_tag("VIDEO", ACTUAL_HEIGHT="0", ACTUAL_WIDTH="0",
+                                 HEIGHT="0", WIDTH="0", LAYERS="0",
+                                 PROGRAM="-1", FRAMERATE="0", VCODEC="h264.mp4",
+                                 VIDEO_LENGTH="0", SINGLE_FRAME="0",
+                                 INTERLACE_AUTOFIX='1',
+                                 INTERLACE_MODE="UNKNOWN",
+                                 INTERLACE_FIXMETHOD="SHIFT_UPONE",
+                                 REEL_NAME="cin0000", REEL_NUMBER="0",
+                                 TCSTART="0", TCEND="0", TCFORMAT="0")
+            video.string = ""
+            asset.append(video)
+            job.append("PATH %s" % outputfile)
+            job.append("AUDIO_CODEC h265.mp4")
+            job.append("VIDEO_CODEC h264.mp4")
+            job.append("FF_AUDIO_OPTIONS strict -2")
+            job.append("FF_AUDIO_BITRATE 0")
+            job.append("FF_VIDEO_OPTIONS crf=17")
+            job.append("FF_VIDEO_BITRATE 0")
+            job.append("FF_VIDEO_QUALITY -1")
 
-        with open(batchfile, "w") as f:
-            f.write(soup.prettify())
+            with open(batchfile, "w") as f:
+                f.write(soup.prettify())
 
-        # Run the batch
-        command = ["cin", "-r", batchfile]
-        output += execCommand(command)
+            # Run the batch
+            command = ["cin", "-r", batchfile]
+            output += execCommand(command)
+        elif mode == 'pitivi':
+            command = ["render_pitivi.sh", edlfile, outfile]
+            output += execCommand(command)
 
         return output
 
@@ -276,6 +302,20 @@ def convert_inputs(project, files=None, factor=0.5):
     }
     return launch_thread("convert_inputs", args)
 
+@jsonrpc.method("App.download_editables(project=String, remoteIP=String, force=Boolean) -> String",
+                validate=True)
+def download_editables(project, remoteIP=None, force=False):
+    remoteIP = get_remote_ip(remoteIP)
+    if remoteIP == '127.0.0.1':
+        return "This is a local request, nothing to do"
+
+    args = {
+        "project": project,
+        "remoteIP": remoteIP,
+        "force": force,
+    }
+    return launch_thread("download_editables", args)
+
 @jsonrpc.method("App.download_proxies(project=String, remoteIP=String, force=Boolean) -> String",
                 validate=True)
 def download_proxies(project, remoteIP=None, force=False):
@@ -290,9 +330,23 @@ def download_proxies(project, remoteIP=None, force=False):
     }
     return launch_thread("download_proxies", args)
 
+@jsonrpc.method("App.upload_edl(project=String, edlfile=String, remoteIP=String) -> String",
+                validate=True)
+def upload_edl(project, edlfile="edl.xges", remoteIP=None):
+    remoteIP = get_remote_ip(remoteIP)
+    if remoteIP == '127.0.0.1':
+        return "This is a local request, nothing to do"
+
+    args = {
+        "project": project,
+        "edlfile": edlfile,
+        "remoteIP": remoteIP,
+    }
+    return launch_thread("upload_edl", args)
+
 @jsonrpc.method("App.upload_proxy_edl(project=String, edlfile=String, remoteIP=String) -> String",
                 validate=True)
-def upload_proxy_edl(project, edlfile="edl.xml", remoteIP=None):
+def upload_proxy_edl(project, edlfile="edl.xges", remoteIP=None):
     remoteIP = get_remote_ip(remoteIP)
     if remoteIP == '127.0.0.1':
         return "This is a local request, nothing to do"
@@ -304,13 +358,16 @@ def upload_proxy_edl(project, edlfile="edl.xml", remoteIP=None):
     }
     return launch_thread("upload_proxy_edl", args)
 
-@jsonrpc.method("App.render_edl(project=String, edlfile=String, outfile=String) -> String",
+@jsonrpc.method("App.render_edl(project=String, edlfile=String, outfile=String, proxy=Boolean, mode=String) -> String",
                 validate=True)
-def render_edl(project, edlfile="edl.xml", outfile="output.mp4"):
+def render_edl(project, edlfile="edl.xges", outfile="output.mp4", proxy=False,
+               mode='pitivi'):
     args = {
         "project": project,
         "edlfile": edlfile,
         "outfile": outfile,
+        "proxy": proxy,
+        "mode": mode,
     }
     return launch_thread("render_edl", args)
 

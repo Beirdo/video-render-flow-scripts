@@ -95,6 +95,15 @@ parameters = {
             }
         ]
     },
+    "download_editables": {
+        "description": "Download editable video files from server for editing",
+        "params": ["project", "remoteIP", "force"],
+        "arguments": [
+            {
+                "include": "upload_inputs"
+            }
+        ]
+    },
     "download_proxies": {
         "description": "Download proxy video files from server for editing",
         "params": ["project", "remoteIP", "force"],
@@ -104,8 +113,8 @@ parameters = {
             }
         ]
     },
-    "upload_proxy_edl": {
-        "description": "Upload the proxy EDL to the server",
+    "upload_edl": {
+        "description": "Upload the EDL to the server",
         "params": ["project", "remoteIP", "edlfile"],
         "arguments": [
             {
@@ -118,12 +127,21 @@ parameters = {
             }
         ]
     },
-    "render_edl": {
-        "description": "Render the EDL file on the server",
-        "params": ["project", "outfile", "edlfile"],
+    "upload_proxy_edl": {
+        "description": "Upload the proxy EDL to the server",
+        "params": ["project", "remoteIP", "edlfile"],
         "arguments": [
             {
-                "include": "upload_proxy_edl"
+                "include": "upload_edl"
+            }
+        ]
+    },
+    "render_edl": {
+        "description": "Render the EDL file on the server",
+        "params": ["project", "outfile", "edlfile", "proxy", "mode"],
+        "arguments": [
+            {
+                "include": "upload_edl"
             },
             {
                 "args": ["--outfile", '-o'],
@@ -132,7 +150,23 @@ parameters = {
                     "required": True,
                     "help": "Set the output filename",
                 }
-            }
+            },
+            {
+                "args": ["--proxy", '-P'],
+                "kwargs": {
+                    "action": "store_true",
+                    "help": "Render using proxy files",
+                }
+            },
+            {
+                "args": ["--mode", '-m'],
+                "kwargs": {
+                    "action": "store",
+                    "choices": ["cinelerra", "pitivi"],
+                    "default": "pitivi",
+                    "help": "Editing mode (default %(default)s)",
+                },
+            },
         ]
     },
     "poll": {
