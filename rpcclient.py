@@ -169,6 +169,54 @@ parameters = {
             },
         ]
     },
+    "upload_to_youtube": {
+        "description": "Upload the output video to YouTube",
+        "params": ["project", "outfile", "title", "description", "category",
+                   "keywords"],
+        "arguments": [
+            {
+                "args": ["--outfile", '-o'],
+                "kwargs": {
+                    "action": "store",
+                    "required": True,
+                    "help": "Set the output filename",
+                }
+            },
+            {
+                "args": ["--title", "-t"].
+                "kwargs": {
+                    "action": "store",
+                    "required": True,
+                    "help": "Title for the video",
+                }
+            },
+            {
+                "args": ["--description", "-D"].
+                "kwargs": {
+                    "action": "store",
+                    "required": True,
+                    "help": "Description for the video",
+                }
+            },
+            {
+                "args": ["--category", "-c"].
+                "kwargs": {
+                    "action": "store",
+                    "default": 28,
+                    "type": int,
+                    "help": "Category for the video (default %(default)s)",
+                }
+            },
+            {
+                "args": ["--keywords", "-k"].
+                "kwargs": {
+                    "action": "store",
+                    "required": True,
+                    "help": "Keywords for the video (comma separated)",
+                }
+            },
+        ]
+    },
     "poll": {
         "description": "Poll for completion of a task",
         "params": ["id"],

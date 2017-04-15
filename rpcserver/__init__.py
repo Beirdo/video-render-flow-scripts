@@ -246,6 +246,17 @@ class HandlerThread(Thread):
 
         return output
 
+    def upload_to_youtube(self, project, outfile="output.mp4", params={}):
+        path = os.path.join("/opt/video/render/video", project, "output",
+                            outfile)
+        command = ["upload_video.py", "--file", path,
+                   "--title", params.get('title', "Title"),
+                   "--description", params.get('description', "Description"),
+                   "--category", str(int(params.get('category', 28))),
+                   "--keywords", params.get('keywords', "None"),
+                   "--privacyStatus", "public", "--noauth_local_webserver"]
+        return execCommand(command)
+
 def launch_thread(method, args):
     D = json.loads(extract_raw_data_request(request))
     id_ = D.get('id', None)
@@ -376,6 +387,22 @@ def render_edl(project, edlfile="edl.xges", outfile="output.mp4", proxy=False,
         "mode": mode,
     }
     return launch_thread("render_edl", args)
+
+@jsonrpc.method("App.upload_to_youtube(project=String, outfile=String, title=String, description=String, category=Number, keywords=String) -> String",
+                validate=True)
+def upload_to_youtube(project, outfile="output.mp4", title="Title",
+                      description="Description", category=28, keywords="none"):
+    args = {
+        "project": project,
+        "outfile": outfile,
+        "parameters": {
+            "title": title,
+            "description": description,
+            "category": category,
+            "keywords": keywords,
+        }
+    }
+    return launch_thread("upload_to_youtube", args)
 
 @jsonrpc.method("App.poll(id=String) -> String", validate=True)
 def poll(id):
