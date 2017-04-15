@@ -1,15 +1,18 @@
 #!/bin/bash -x
 
 HEADSET=
+BUILTIN=
 if [ "$1" == "--headset" ]; then
     HEADSET="1"
     shift 1
-fi
-
-BUILTIN=
-if [ "$1" == "--builtin" ]; then
+elif [ "$1" == "--builtin" ]; then
     BUILTIN="1"
     shift 1
+fi
+
+PREVIEW="yes"
+if [ "$1" == "--nopreview" ]; then
+    PREVIEW=""
 fi
 
 SCOPEVIDDEVICE=$(find_video_dev.py "USB2.0 Camera")
@@ -52,6 +55,29 @@ CAMRIGHT=-$(( 800 - ${CAMVIEWWIDTH} ))
 
 VIEWRATE=${5:-15/1}
 
+if [ "$PREVIEW" = "yes" ]; then
+    PREVIEW="vid1. ! queue ! videorate ! video/x-raw,framerate=$VIEWRATE ! "
+    PREVIEW+="  videoscale ! "
+    PREVIEW+="  video/x-raw,width=$SCOPEVIEWWIDTH,height=$SCOPEVIEWHEIGHT ! "
+    PREVIEW+="  videobox border-alpha=0 top=${SCOPETOP} left=${SCOPELEFT} ! "
+    PREVIEW+="  videoconvert ! queue name=xv1 "
+    PREVIEW+="vid2. ! queue ! avdec_h264 ! "
+    PREVIEW+="  videoscale ! videorate ! videoconvert ! "
+    PREVIEW+="  video/x-raw,format=YUY2,framerate=$VIEWRATE,width=$CAMVIEWWIDTH,height=$CAMVIEWHEIGHT ! "
+    PREVIEW+="  videoconvert ! queue name=xv2 "
+    PREVIEW+="xv1. ! videomixer name=mix ! "
+    PREVIEW+="  videoconvert ! queue name=out "
+    PREVIEW+="xv2. ! mix. "
+    PREVIEW+="out. ! tee name=out2 "
+    PREVIEW+="out2. ! queue leaky=1 ! xvimagesink sync=false "
+    PREVIEW+="out2. ! queue ! "
+    PREVIEW+="  x264enc bitrate=2000 speed-preset=ultrafast ! queue name=videoq3 "
+    PREVIEW+="videoq3. ! matroskamux name=mux3 ! "
+    PREVIEW+="  filesink location=${OUTDIR}/${PREVIEWFILENAME} "
+    PREVIEW+="audiotee. ! identity sync=true ! " \
+    PREVIEW+="  queue max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! mux3. "
+fi
+
 gst-launch-1.0 -ve \
     v4l2src device="$SCOPEVIDDEVICE" typefind=true ! \
         video/x-raw,format=YUY2,framerate=30/1,width=640,height=480 ! \
@@ -75,23 +101,5 @@ gst-launch-1.0 -ve \
         queue max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! mux2. \
     matroskamux streamable=true name=mux2 ! \
         filesink location=${OUTDIR}/${CAMFILENAME} \
-    vid1. ! queue ! videorate ! video/x-raw,framerate=$VIEWRATE ! \
-        videoscale ! video/x-raw,width=$SCOPEVIEWWIDTH,height=$SCOPEVIEWHEIGHT ! \
-        videobox border-alpha=0 top=${SCOPETOP} left=${SCOPELEFT} ! \
-        videoconvert ! queue name=xv1 \
-    vid2. ! queue ! avdec_h264 ! \
-        videoscale ! videorate ! videoconvert ! \
-        video/x-raw,format=YUY2,framerate=$VIEWRATE,width=$CAMVIEWWIDTH,height=$CAMVIEWHEIGHT !\
-        videoconvert ! queue name=xv2 \
-    xv1. ! videomixer name=mix ! \
-        videoconvert ! queue name=out \
-    xv2. ! mix. \
-    out. ! tee name=out2 \
-    out2. ! queue leaky=1 ! xvimagesink sync=false \
-    out2. ! queue ! \
-        x264enc bitrate=2000 speed-preset=ultrafast ! queue name=videoq3 \
-    videoq3. ! matroskamux name=mux3 ! \
-	filesink location=${OUTDIR}/${PREVIEWFILENAME} \
-    audiotee. ! identity sync=true ! \
-        queue max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! mux3. \
+    ${PREVIEW}
 

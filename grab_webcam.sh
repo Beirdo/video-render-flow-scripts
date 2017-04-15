@@ -6,6 +6,11 @@ if [ "$1" == "--headset" ]; then
     shift 1
 fi
 
+PREVIEW="yes"
+if [ "$1" == "--nopreview" ]; then
+    PREVIEW=""
+fi
+
 VIDDEVICE=$(find_video_dev.py "HD Pro Webcam C920")
 if [ $? -ne 0 ]; then
     exit 1
@@ -22,17 +27,19 @@ VIEWWIDTH=${1:-800}
 VIEWHEIGHT=${2:-448}
 VIEWRATE=${3:-15/1}
 
+if [ "$PREVIEW" = "yes" ]; then
+    PREVIEW="vid. ! queue ! avdec_h264 ! "
+    PREVIEW+="  videoscale ! videorate ! videoconvert ! "
+    PREVIEW+="  video/x-raw,format=YUY2,framerate=$VIEWRATE,width=$VIEWWIDTH,height=$VIEWHEIGHT ! "
+    PREVIEW+="  videoconvert ! queue leaky=1 ! xvimagesink sync=false"
+fi
+
 export GST_PLUGIN_PATH=/usr/local/lib/gstreamer-1.0
 
 gst-launch-1.0 -ve \
     v4l2src device="$VIDDEVICE" ! \
         video/x-h264 ! h264parse ! \
         tee name=vid \
-    vid. ! queue ! avdec_h264 ! \
-        videoscale ! videorate ! videoconvert ! \
-        video/x-raw,format=YUY2,framerate=$VIEWRATE,width=$VIEWWIDTH,height=$VIEWHEIGHT !\
-        videoconvert ! queue name=xv leaky=1 \
-    xv. ! xvimagesink sync=false \
     vid. ! queue ! \
         video/x-h264,width=1920,height=1080,framerate=30/1,stream-format=avc ! \
         identity sync=true ! queue name=videoq \
@@ -44,3 +51,4 @@ gst-launch-1.0 -ve \
     audioq. ! mux. \
     matroskamux streamable=true name=mux ! \
         filesink location=${OUTDIR}/${FILENAME} \
+    ${PREVIEW}
