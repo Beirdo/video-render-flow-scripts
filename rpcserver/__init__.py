@@ -41,10 +41,15 @@ def execCommand(command):
         raise Exception(message)
 
 def get_remote_ip(remoteIP=None):
+    logger.info("Remote IP: %s" % remoteIP)
     if not remoteIP or remoteIP == '""':
-        remoteIP=request.remote_addr
-    if remoteIP == "localhost":
+        logger.info(dir(request))
+        logger.info(request.__dict__)
+        remoteIP = request.environ.get("HTTP_X_REAL_IP",  None)
+    logger.info("Remote IP: %s" % remoteIP)
+    if not remoteIP or remoteIP == "localhost":
         remoteIP = "127.0.0.1"
+    logger.info("Remote IP: %s" % remoteIP)
     return remoteIP
 
 
