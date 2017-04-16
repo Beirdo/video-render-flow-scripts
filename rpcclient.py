@@ -8,6 +8,7 @@ from flask_jsonrpc.proxy import ServiceProxy
 import os
 import sys
 import re
+import time
 
 FORMAT = "%(asctime)s: %(name)s:%(lineno)d (%(threadName)s) - %(levelname)s - %(message)s"
 logging.basicConfig(format=FORMAT)
@@ -260,7 +261,7 @@ def add_parser_args(parser, progname):
 
 def print_response(response):
     output = response.get("result", None)
-    if output:
+    if output and not output.startswith("status: "):
         response['result'] = ""
         print(output)
     print(json.dumps(response, indent=2))
@@ -297,21 +298,28 @@ apifunc = getattr(proxy.App, progname)
 
 params = parameters[progname].get('params', [])
 apiparams = {param: getattr(args, param) for param in params}
-response = apifunc(**apiparams)
 
-retCode = print_response(response)
+if progname != "poll":
+    response = apifunc(**apiparams)
 
-if not args.poll:
-    sys.exit(retCode)
+    retCode = print_response(response)
 
-uuid = response['id']
+    if not args.poll:
+        sys.exit(retCode)
+
+    uuid = response['id']
+    sleepTime = 10
+else:
+    uuid = args.id
+    sleepTime = 0
 statusRe = re.compile(r"^status: (.*?)$")
 
 while True:
-    logger.info("Sleeping for 5min")
-    time.sleep(300)
+    logger.info("Sleeping for %ss" % sleepTime)
+    time.sleep(sleepTime)
+    sleepTime = max(min(sleepTime * 2, 300), 10)
 
-    response = proxy.App.poll({"id": uuid})
+    response = proxy.App.poll(id=uuid)
     retCode = print_response(response)
     if retCode:
         output = None
