@@ -23,8 +23,26 @@ logging.getLogger(None).setLevel(logging.INFO)
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
 
-requestQ = Queue()
-handlerThread = None
+queues = {
+    "cpu-bound": Queue(),
+    "internal-network-bound": Queue(),
+    "external-network-bound": Queue(),
+    "local": Queue(),
+}
+
+queueMap = {
+    "upload_inputs": "internal-network-bound",
+    "convert_inputs": "cpu-bound",
+    "download_proxies": "internal-network-bound",
+    "download_editables": "internal-network-bound",
+    "upload_edl": "local",
+    "upload_proxy_edl": "local",
+    "render_edl": "cpu-bound",
+    "upload_to_youtube": "external-network-bound",
+    "archive_to_s3": "external-network-bound",
+}
+
+handlerThreads = {}
 handlers = {}
 
 def execCommand(command):
@@ -54,11 +72,11 @@ def get_remote_ip(remoteIP=None):
 
 
 class HandlerThread(Thread):
-    def __init__(self, queue):
+    def __init__(self, queue, queueName):
         Thread.__init__(self)
 
         self.queue = queue
-        self.name = "handler_thread"
+        self.name = "%s-handler" % queueName
 
     def run(self):
         global handlers
@@ -257,6 +275,20 @@ class HandlerThread(Thread):
                    "--privacyStatus", "public", "--noauth_local_webserver"]
         return execCommand(command)
 
+    def archive_to_s3(self, project, skip=False, inputs=False, delete=False,
+                      accelerate=False):
+        command = ["archive_to_s3.py", "--project", project]
+        if skip:
+            command.append("--skip")
+        if inputs:
+            command.append("--inputs")
+        if delete:
+            command.append("--delete")
+        if accelerate:
+            command.append("--accelerate")
+        return execCommand(command)
+
+
 def launch_thread(method, args):
     D = json.loads(extract_raw_data_request(request))
     id_ = D.get('id', None)
@@ -268,17 +300,24 @@ def launch_thread(method, args):
         "args": args,
         "id": id_,
     }
-    logger.info("Queuing request for method %s (id %s)" % (method, id_))
-    requestQ.put(data, block=False)
+    queueName = queueMap.get(method, "local")
+    queue = queues.get(queueName, None)
+    if not queue:
+        queueName = "local"
+        queue = queues['local']
+
+    logger.info("Queuing request for %s method %s (id %s)" %
+                (queueName, method, id_))
+    queue.put(data, block=False)
 
     global handlers
     handlers[id_] = {"status": "queued"}
 
-    global handlerThread
-    if not handlerThread:
-        handlerThread = HandlerThread(requestQ)
-        handlerThread.daemon = True
-        handlerThread.start()
+    global handlerThreads
+    if not handlerThreads.get(queueName, None):
+        handlerThreads[queueName] = HandlerThread(queue, queueName)
+        handlerThreads[queueName].daemon = True
+        handlerThreads[queueName].start()
 
     return "Please poll with id %s" % id_
 
@@ -403,6 +442,12 @@ def upload_to_youtube(project, outfile="output.mp4", title="Title",
         }
     }
     return launch_thread("upload_to_youtube", args)
+
+@jsonrpc.method("App.archive_to_s3(project=String, skip=Boolean, inputs=Boolean, delete=Boolean, accelerate=Boolean) -> String",
+                validate=True)
+def archive_to_s3(**kwargs):
+    return launch_thread("archive_to_s3", kwargs)
+
 
 @jsonrpc.method("App.poll(id=String) -> String", validate=True)
 def poll(id):

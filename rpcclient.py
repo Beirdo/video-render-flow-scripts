@@ -227,6 +227,40 @@ parameters = {
             },
         ]
     },
+    "archive_to_s3": {
+        "description": "Archive a project to S3",
+        "params": ["project", "skip", "inputs", "delete", "accelerate"],
+        "arguments": [
+            {
+                "args": ["--skip", '-s'],
+                "kwargs": {
+                    "action": "store_true", 
+                    "help": "Skip uploading".
+                }
+            },
+            {
+                "args": ["--inputs", '-i'],
+                "kwargs": {
+                    "action": "store_true", 
+                    "help": "Archive inputs too",
+                }
+            },
+            {
+                "args": ["--delete", '-D'],
+                "kwargs": {
+                    "action": "store_true", 
+                    "help": "Delete project locally after upload",
+                }
+            },
+            {
+                "args": ["--accelerate", '-a'],
+                "kwargs": {
+                    "action": "store_true", 
+                    "help": "Use S3 Transfer Acceleration",
+                }
+            },
+        ],
+    },
     "poll": {
         "description": "Poll for completion of a task",
         "params": ["id"],
