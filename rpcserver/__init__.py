@@ -395,7 +395,7 @@ def upload_to_youtube(project, outfile="output.mp4", title="Title",
     args = {
         "project": project,
         "outfile": outfile,
-        "parameters": {
+        "params": {
             "title": title,
             "description": description,
             "category": category,
