@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 # vim:ts=4:sw=4:ai:et:si:sts=4
+# See http://s3-accelerate-speedtest.s3-accelerate.amazonaws.com/en/accelerate-speed-comparsion.html?region=us-west-2&origBucketName=beirdo-videos
 
 import logging
 import argparse
@@ -7,6 +8,7 @@ import os
 import sys
 import json
 import boto3
+from botocore.client import Config
 import shutil
 import threading
 import time
@@ -67,6 +69,8 @@ parser.add_argument("--inputs", '-i', action="store_true",
                     help="Archive inputs too")
 parser.add_argument("--delete", '-D', action="store_true", 
                     help="Delete project locally after upload")
+parser.add_argument("--accelerate", '-a', action="store_true", 
+                    help="Use S3 Transfer Acceleration")
 args = parser.parse_args()
 
 basedir = os.path.realpath(os.path.dirname(sys.argv[0]))
@@ -79,9 +83,15 @@ if not args.skip:
     with open(credsfile, "r") as f:
         config = json.load(f)
 
+    botoconfig = {
+        "s3": {
+            "use_accelerate_endpoint": args.accelerate
+        }
+    }
     s3 = boto3.client("s3", config['region'],
                       aws_access_key_id=config['accessKey'],
-                      aws_secret_access_key=config['secretKey'])
+                      aws_secret_access_key=config['secretKey'],
+                      config=Config(**botoconfig))
 
     uploadFiles = {}
     sourcedir = os.path.join(projectdir, "output")
