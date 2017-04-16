@@ -7,6 +7,7 @@ import json
 from flask_jsonrpc.proxy import ServiceProxy
 import os
 import sys
+import re
 
 FORMAT = "%(asctime)s: %(name)s:%(lineno)d (%(threadName)s) - %(levelname)s - %(message)s"
 logging.basicConfig(format=FORMAT)
@@ -55,6 +56,14 @@ parameters = {
                     "action": "store",
                     "default": "",
                     "help": "Override the client IP",
+                }
+            },
+            {
+                "args": ['--nopoll'],
+                "kwargs": {
+                    "action": "store_false",
+                    "dest": "poll",
+                    "help": "Disable the poll for completion",
                 }
             },
         ],
@@ -249,6 +258,17 @@ def add_parser_args(parser, progname):
         kwargs = arg.get('kwargs', {})
         parser.add_argument(*args, **kwargs)
 
+def print_response(response):
+    output = response.get("result", None)
+    if output:
+        response['result'] = ""
+        print(output)
+    print(json.dumps(response, indent=2))
+
+    if "errors" in response:
+        return 1
+    return 0
+
 if progname not in parameters:
     logger.error("RPC service %s is not defined" % progname)
     sys.exit(1)
@@ -259,7 +279,10 @@ add_parser_args(parser, 'common')
 add_parser_args(parser, progname)
 args = parser.parse_args()
 
-print(args)
+logger.info("Args: %s" % args)
+
+if progname in nonProjectMethods:
+    args.poll = False
 
 if args.debug:
     logging.getLogger(None).setLevel(logging.DEBUG)
@@ -276,8 +299,27 @@ params = parameters[progname].get('params', [])
 apiparams = {param: getattr(args, param) for param in params}
 response = apifunc(**apiparams)
 
-output = response.get("result", None)
-if output:
-    response['result'] = ""
-    print(output)
-print(json.dumps(response, indent=2))
+retCode = print_response(response)
+
+if not args.poll:
+    sys.exit(retCode)
+
+uuid = response['id']
+statusRe = re.compile(r"^status: (.*?)$")
+
+while True:
+    logger.info("Sleeping for 5min")
+    time.sleep(300)
+
+    response = proxy.App.poll({"id": uuid})
+    retCode = print_response(response)
+    if retCode:
+        output = None
+        break
+
+    output = response.get("result", "")
+    match = statusRe.match(output)
+    if not match:
+        break
+
+sys.exit(retCode)

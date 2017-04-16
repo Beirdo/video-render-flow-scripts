@@ -1,5 +1,6 @@
 *.bak
 *.swp
 __pycache__/
+aws-config.json
 client_secrets.json
 upload_video.py-oauth2.json
