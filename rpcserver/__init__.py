@@ -9,10 +9,12 @@ import os
 import sys
 import shutil
 import json
-from subprocess import check_output, STDOUT, CalledProcessError
+from subprocess import Popen, PIPE, STDOUT
 from bs4 import BeautifulSoup
-from threading import Thread
+from threading import Thread, Lock
 from queue import Queue
+import time
+import selectors
 
 logdir = "/opt/video/render/logs"
 logfile = os.path.join(logdir, "rpcserver.log")
@@ -47,7 +49,7 @@ handlers = {}
 outputThread = None
 
 
-class OutputThread(Thread)
+class OutputThread(Thread):
     def __init__(self):
         Thread.__init__(self)
 
@@ -60,7 +62,7 @@ class OutputThread(Thread)
 
     def run(self):
         while True:
-            events = sel.select()
+            events = self.sel.select(0.1)
             for (key, mask) in events:
                 callback = key.data
                 callback(key.fileobj, mask)
@@ -68,10 +70,12 @@ class OutputThread(Thread)
     def add(self, id_):
         fd = self.handlers[id_]['pipe']
         self.idMap[fd] = id_
+        logger.info("Adding %s (%s)" % (fd, id_))
         self.sel.register(fd, selectors.EVENT_READ, self.read)
 
     def removeId(self, id_):
         fd = self.handlers[id_]['pipe']
+        logger.info("Removing %s (%s)" % (fd, id_))
         self.remove(fd)
 
     def remove(self, fd):
@@ -81,14 +85,16 @@ class OutputThread(Thread)
 
     def read(self, fd, mask):
         data = fd.read(1024)
+        id_ = self.idMap.get(fd, None)
+        logger.info("Data len: %s" % len(data))
         if data:
-            id_ = self.idMap.get(fd, None)
             handler = self.handlers.get(id_, None)
             if id_ and handler:
-                handler['data'].append(data)
+                with handler['lock']:
+                    handler['data'].append(data)
                 return
 
-        self.remove(fd)
+        self.removeId(id_)
 
 
 def get_remote_ip(remoteIP=None):
@@ -129,10 +135,12 @@ class HandlerThread(Thread):
             if id_ not in self.handlers:
                 self.handlers[id_] = {}
             data = self.handlers[id_]
+            data['lock'] = Lock()
             data['status'] = 'in-progress'
             data['processTime'] = time.time()
             data['queueTime'] = time.time() - data['queueTime']
             data['data'] = []
+            data['polldata'] = []
             logger.info("Starting handler for method %s (id %s)" %
                         (method, id_))
             args['myId'] = id_
@@ -170,11 +178,13 @@ class HandlerThread(Thread):
             outputThread.add(id_)
             p.wait()
             retCode = p.returncode
-        finally:
-            outputThread.removeId(id_)
 
-        if handler['data']:
-            output = b" ".join(handler['data']).decode("utf-8")
+        handler['pipe'].close()
+
+        output = None
+        with handler['lock']:
+            if handler['data']:
+                output = b" ".join(handler['data']).decode("utf-8")
 
         if retCode:
             message = "Command: %s returned %s" % (" ".join(command), retCode)
@@ -187,6 +197,7 @@ class HandlerThread(Thread):
 
     def upload_inputs(self, myId, project, remoteIP=None, force=False):
         path = os.path.join("/opt/video/render/video", project, "input", "")
+        os.makedirs(path, exist_ok=True)
         command = ["rsync", "-avt", "%s:%s" % (remoteIP, path), path]
         if force:
             command.insert(2, "--delete")
@@ -194,6 +205,7 @@ class HandlerThread(Thread):
 
     def convert_inputs(self, myId, project, files=None, factor=0.5):
         path = os.path.join("/opt/video/render/video", project, "input", "")
+        os.makedirs(path, exist_ok=True)
         if not factor:
             factor = 0.5
 
@@ -205,15 +217,16 @@ class HandlerThread(Thread):
             files = [os.path.join(path, file_) for file_ in files]
 
         # Dedupe and check existing files
-        r
         files = [file_ for file_ in set(files) if os.path.exists(file_)]
 
         if not files:
             return "No files in project %s" % project
 
+        handler = self.handlers[myId]
         for file_ in files:
             command = ["convert_gstream.sh", "--factor", str(factor), file_]
-            self.handlers[myId]['output'].append("\n\n")
+            with handler['lock']:
+                handler['data'].append(b"\n\n")
             self.execCommand(command, myId)
 
     def download_proxies(self, myId, project, remoteIP=None, force=False):
@@ -225,6 +238,7 @@ class HandlerThread(Thread):
 
     def download_editables(self, myId, project, remoteIP=None, force=False):
         path = os.path.join("/opt/video/render/video", project, "edit", "")
+        os.makedirs(path, exist_ok=True)
         command = ["rsync", "-avt", path, "%s:%s" % (remoteIP, path)]
         if force:
             command.insert(2, "--delete")
@@ -520,7 +534,7 @@ def archive_to_s3(**kwargs):
     return launch_thread("archive_to_s3", kwargs)
 
 
-@jsonrpc.method("App.poll(id=String) -> String", validate=True)
+@jsonrpc.method("App.poll(id=String) -> Object", validate=True)
 def poll(id):
     global handlers
     logger.info("Polling id %s" % id)
@@ -529,19 +543,25 @@ def poll(id):
 
     handler = handlers[id]
     status = handler['status']
+    with handler['lock']:
+        handler['polldata'].append(b"".join(handler['data']))
+        handler['data'] = []
+
     result = {
         "status": status,
-        "result": b"".join(handler['data']).decode("utf-8"),
+        "result": handler['polldata'][-1].decode("utf-8"),
         "queueDuration": handler['queueTime'],
+        "processDuration": time.time() - handler['processTime'],
     }
 
     if status == "complete":
-        result["processDuration"] = time.time() - handler['processTime']
+        result['result'] = b"".join(handler['polldata']).decode("utf-8")
+        result["processDuration"] = handler['processTime']
         del handlers[id]
-        if not handler.get('data', None):
+        if 'error' in handler:
             raise Exception(handler.get('error', "Unknown error"))
 
-    return json.dumps(result)
+    return result
 
 @jsonrpc.method("App.list_outstanding() -> Array", validate=True)
 def list_outstanding():
@@ -555,4 +575,4 @@ if __name__ == '__main__':
     logFormatter = logging.Formatter(fmt=FORMAT)
     logHandler.setFormatter(logFormatter)
     logging.getLogger(None).addHandler(logHandler)
-    app.run(host='0.0.0.0', debug=False)
+    app.run(host='0.0.0.0', port=5001, debug=False)
