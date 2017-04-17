@@ -21,7 +21,8 @@ if [ -n "$HEADSET" ]; then
     AUDDEVICE="alsa_input.usb-Logitech_Inc_Logitech_USB_Headset_H540_00000000-00.analog-stereo"
 fi
 OUTDIR=/opt/video/render/rawinput
-FILENAME=webcam-$(date +%F-%T).mkv
+DATESTAMP=$(date +%F-%T | tr ':' '-')
+FILENAME=webcam-${DATESTAMP}.mkv
 
 VIEWWIDTH=${1:-800}
 VIEWHEIGHT=${2:-448}

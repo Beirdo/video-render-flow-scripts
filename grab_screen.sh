@@ -21,7 +21,8 @@ fi
 # Use the headset
 AUDDEVICE="alsa_input.usb-Logitech_Inc_Logitech_USB_Headset_H540_00000000-00.analog-stereo"
 OUTDIR=/opt/video/render/rawinput
-FILENAME=screencapture-$(date +%F-%T).mkv
+DATESTAMP=$(date +%F-%T | tr ':' '-')
+FILENAME=screencapture-${DATESTAMP}.mkv
 
 VIEWWIDTH=${1:-768}
 VIEWHEIGHT=${2:-480}

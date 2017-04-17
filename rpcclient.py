@@ -36,6 +36,13 @@ parameters = {
                 }
             },
             {
+                "args": ["--verbose", "-v"],
+                "kwargs": {
+                    "action": "store_true",
+                    "help": "Use verbose mode",
+                }
+            },
+            {
                 "args": ["--project", "-p"],
                 "kwargs": {
                     "action": "store",
@@ -235,7 +242,7 @@ parameters = {
                 "args": ["--skip", '-s'],
                 "kwargs": {
                     "action": "store_true", 
-                    "help": "Skip uploading".
+                    "help": "Skip uploading",
                 }
             },
             {
@@ -294,10 +301,16 @@ def add_parser_args(parser, progname):
         parser.add_argument(*args, **kwargs)
 
 def print_response(response):
-    output = response.get("result", None)
-    if output and not output.startswith("status: "):
-        response['result'] = ""
-        print(output)
+    global verbose
+    if not verbose:
+        result = response.get('result', None)
+        if result is not None:
+            if isinstance(result, dict):
+                result = result.get('result', "")
+                if result:
+                    print(result)
+                return 0
+
     print(json.dumps(response, indent=2))
 
     if "errors" in response:
@@ -325,6 +338,8 @@ if args.debug:
 if hasattr(args, "files") and not args.files:
     args.files = []
 
+verbose = args.verbose
+
 apiurl = "http://%s:5000/api" % args.serverIP
 logger.info("Using service at %s" % apiurl)
 proxy = ServiceProxy(apiurl)
@@ -342,12 +357,10 @@ if progname != "poll":
         sys.exit(retCode)
 
     uuid = response['id']
-    sleepTime = 10
 else:
     uuid = args.id
-    sleepTime = 0
-statusRe = re.compile(r"^status: (.*?)$")
 
+sleepTime = 0
 while True:
     logger.info("Sleeping for %ss" % sleepTime)
     time.sleep(sleepTime)
@@ -359,9 +372,8 @@ while True:
         output = None
         break
 
-    output = response.get("result", "")
-    match = statusRe.match(output)
-    if not match:
+    output = response.get("result", {})
+    if output.get("status", "complete") == "complete":
         break
 
 sys.exit(retCode)

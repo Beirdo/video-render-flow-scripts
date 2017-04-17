@@ -15,7 +15,8 @@ fi
 # Use the laptop's builtin mic
 AUDDEVICE="alsa_input.pci-0000_00_1b.0.analog-stereo"
 OUTDIR=/opt/video/render/rawinput
-FILENAME=microscope-$(date +%F-%T).mkv
+DATESTAMP=$(date +%F-%T | tr ':' '-')
+FILENAME=microscope-${DATESTAMP}.mkv
 
 VIEWWIDTH=${1:-640}
 VIEWHEIGHT=${2:-480}

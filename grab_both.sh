@@ -39,9 +39,10 @@ if [ -n "$BUILTIN" ]; then
 fi
 
 OUTDIR=/opt/video/render/rawinput
-SCOPEFILENAME=microscope-$(date +%F-%T).mkv
-CAMFILENAME=webcam-$(date +%F-%T).mkv
-PREVIEWFILENAME=preview-$(date +%F-%T).mkv
+DATESTAMP=$(date +%F-%T | tr ':' '-')
+SCOPEFILENAME=microscope-${DATESTAMP}.mkv
+CAMFILENAME=webcam-${DATESTAMP}.mkv
+PREVIEWFILENAME=preview-${DATESTAMP}.mkv
 
 SCOPEVIEWWIDTH=${1:-448}
 SCOPEVIEWHEIGHT=${2:-336}
