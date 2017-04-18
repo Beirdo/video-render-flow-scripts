@@ -1,14 +1,8 @@
 #!/bin/bash -x
 
-HEADSET=
-BUILTIN=
-if [ "$1" == "--headset" ]; then
-    HEADSET="1"
-    shift 1
-elif [ "$1" == "--builtin" ]; then
-    BUILTIN="1"
-    shift 1
-fi
+BASEDIR=$(cd $(dirname $0); pwd)
+DEFAULTAUDIO="microphone"
+source ${BASEDIR}/select_audio.sh
 
 PREVIEW="yes"
 if [ "$1" == "--nopreview" ]; then
@@ -23,19 +17,6 @@ fi
 CAMVIDDEVICE=$(find_video_dev.py "HD Pro Webcam C920")
 if [ $? -ne 0 ]; then
     exit 1
-fi
-
-
-# This microphone in the microscope doesn't seem to do squat
-#AUDDEVICE="alsa_input.usb-Etron_Technology__Inc._USB2.0_Camera-02.analog-mono"
-# Use the laptop's builtin mic
-
-AUDDEVICE="alsa_input.usb-046d_HD_Pro_Webcam_C920_4BB47EAF-02.analog-stereo"
-if [ -n "$HEADSET" ]; then
-    AUDDEVICE="alsa_input.usb-Logitech_Inc_Logitech_USB_Headset_H540_00000000-00.analog-stereo"
-fi
-if [ -n "$BUILTIN" ]; then
-    AUDDEVICE="alsa_input.pci-0000_00_1b.0.analog-stereo"
 fi
 
 OUTDIR=/opt/video/render/rawinput

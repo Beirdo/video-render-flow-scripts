@@ -1,5 +1,9 @@
 #!/bin/bash -x
 
+BASEDIR=$(cd $(dirname $0); pwd)
+DEFAULTAUDIO="microphone"
+source ${BASEDIR}/select_audio.sh
+
 WHAT="startx=800 starty=0 endx=2080 endy=800"
 CROP="videocrop left=800 ! "
 
@@ -18,8 +22,6 @@ if [ "$1" == "--nopreview" ]; then
     PREVIEW=""
 fi
 
-# Use the headset
-AUDDEVICE="alsa_input.usb-Logitech_Inc_Logitech_USB_Headset_H540_00000000-00.analog-stereo"
 OUTDIR=/opt/video/render/rawinput
 DATESTAMP=$(date +%F-%T | tr ':' '-')
 FILENAME=screencapture-${DATESTAMP}.mkv

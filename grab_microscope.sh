@@ -1,5 +1,9 @@
 #!/bin/bash -x
 
+BASEDIR=$(cd $(dirname $0); pwd)
+DEFAULTAUDIO="builtin"
+source ${BASEDIR}/select_audio.sh
+
 VIDDEVICE=$(find_video_dev.py "USB2.0 Camera")
 if [ $? -ne 0 ]; then
     exit 1
@@ -10,10 +14,6 @@ if [ "$1" == "--nopreview" ]; then
     PREVIEW=""
 fi
 
-# This microphone in the microscope doesn't seem to do squat
-#AUDDEVICE="alsa_input.usb-Etron_Technology__Inc._USB2.0_Camera-02.analog-mono"
-# Use the laptop's builtin mic
-AUDDEVICE="alsa_input.pci-0000_00_1b.0.analog-stereo"
 OUTDIR=/opt/video/render/rawinput
 DATESTAMP=$(date +%F-%T | tr ':' '-')
 FILENAME=microscope-${DATESTAMP}.mkv

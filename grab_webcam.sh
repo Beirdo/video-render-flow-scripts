@@ -1,10 +1,8 @@
 #!/bin/bash -x
 
-HEADSET=
-if [ "$1" == "--headset" ]; then
-    HEADSET="1"
-    shift 1
-fi
+BASEDIR=$(cd $(dirname $0); pwd)
+DEFAULTAUDIO="webcam"
+source ${BASEDIR}/select_audio.sh
 
 PREVIEW="yes"
 if [ "$1" == "--nopreview" ]; then
@@ -16,10 +14,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-AUDDEVICE="alsa_input.usb-046d_HD_Pro_Webcam_C920_4BB47EAF-02.analog-stereo"
-if [ -n "$HEADSET" ]; then
-    AUDDEVICE="alsa_input.usb-Logitech_Inc_Logitech_USB_Headset_H540_00000000-00.analog-stereo"
-fi
 OUTDIR=/opt/video/render/rawinput
 DATESTAMP=$(date +%F-%T | tr ':' '-')
 FILENAME=webcam-${DATESTAMP}.mkv
