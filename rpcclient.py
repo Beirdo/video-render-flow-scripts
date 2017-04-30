@@ -246,7 +246,7 @@ parameters = {
                 }
             },
             {
-                "args": ["--inputs", '-i'],
+                "args": ["--inputs", '-I'],
                 "kwargs": {
                     "action": "store_true", 
                     "help": "Archive inputs too",
