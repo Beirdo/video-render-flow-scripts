@@ -340,7 +340,7 @@ if hasattr(args, "files") and not args.files:
 
 verbose = args.verbose
 
-apiurl = "http://%s:5000/api" % args.serverIP
+apiurl = "http://%s:5005/api" % args.serverIP
 logger.info("Using service at %s" % apiurl)
 proxy = ServiceProxy(apiurl)
 apifunc = getattr(proxy.App, progname)

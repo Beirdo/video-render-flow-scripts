@@ -11,10 +11,10 @@ for i in "$@"; do
     BASEFILE=$(basename $i)
     BASEFILE=${BASEFILE%%.*}
     INPUTDIR=$(dirname ${FULLFILE})
-    BASEDIR=$(realpath ${INPUTDIR}/../..)
+    BASEDIR=$(realpath ${INPUTDIR}/..)
     SOURCE=$(basename ${INPUTDIR})
-    EDITDIR=${BASEDIR}/edit/${SOURCE}
-    PROXYDIR=${BASEDIR}/proxy/${SOURCE}
+    EDITDIR=${BASEDIR}/edit
+    PROXYDIR=${BASEDIR}/proxy
     mkdir -p ${EDITDIR} ${PROXYDIR}
 
     PROXYHEIGHT=$(codec.py --height --factor ${FACTOR} --file ${FULLFILE})
