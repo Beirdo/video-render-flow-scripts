@@ -96,17 +96,17 @@ def initialize_upload(youtube, options):
   if options.keywords:
     tags = options.keywords.split(",")
 
-  body=dict(
-    snippet=dict(
-      title=options.title,
-      description=options.description,
-      tags=tags,
-      categoryId=options.category
-    ),
-    status=dict(
-      privacyStatus=options.privacyStatus
-    )
-  )
+  body = {
+    "snippet": {
+      "title": options.title,
+      "description": options.description,
+      "tags": tags,
+      "categoryId": options.category
+    },
+    "status": {
+      "privacyStatus": options.privacyStatus
+    }
+  }
 
   # Call the API's videos.insert method to create and upload the video.
   insert_request = youtube.videos().insert(
