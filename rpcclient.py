@@ -9,6 +9,7 @@ import os
 import sys
 import re
 import time
+import configparser
 
 FORMAT = "%(asctime)s: %(name)s:%(lineno)d (%(threadName)s) - %(levelname)s - %(message)s"
 logging.basicConfig(format=FORMAT)
@@ -23,6 +24,34 @@ if progname == "rpcclient.py" or progname == "common" or len(progname) < 7:
 
 # Strip the video_ off the beginning
 progname = progname[6:]
+
+# Common config file
+configFile = os.path.expanduser("~/.video.cfg")
+configData = configparser.ConfigParser()
+configData.optionxform = str
+
+try:
+    configData.read(configFile)
+except Exception:
+    pass
+
+config = {}
+try:
+    config.update({k: configData.get("default", k) for k in configData.options("default")})
+except Exception:
+    pass
+
+try:
+    config.update({k: configData.get("progname", k) for k in configData.options("progname")})
+except Exception:
+    pass
+
+envVars = {
+    "VID_PROJECT": "project",
+    "VID_SERVERIP": "serverIP",
+}
+
+config.update({v: os.environ.get(k, None) for (k, v) in envVars.items() if k in os.environ})
 
 nonProjectMethods = ["poll", "list_outstanding"]
 parameters = {
@@ -241,28 +270,28 @@ parameters = {
             {
                 "args": ["--skip", '-s'],
                 "kwargs": {
-                    "action": "store_true", 
+                    "action": "store_true",
                     "help": "Skip uploading",
                 }
             },
             {
                 "args": ["--inputs"],
                 "kwargs": {
-                    "action": "store_true", 
+                    "action": "store_true",
                     "help": "Archive inputs too",
                 }
             },
             {
                 "args": ["--delete", '-D'],
                 "kwargs": {
-                    "action": "store_true", 
+                    "action": "store_true",
                     "help": "Delete project locally after upload",
                 }
             },
             {
                 "args": ["--accelerate", '-a'],
                 "kwargs": {
-                    "action": "store_true", 
+                    "action": "store_true",
                     "help": "Use S3 Transfer Acceleration",
                 }
             },
@@ -296,8 +325,19 @@ def add_parser_args(parser, progname):
         if "include" in arg:
             add_parser_args(parser, arg['include'])
             continue
+
         args = arg.get('args', [])
         kwargs = arg.get('kwargs', {})
+
+        if kwargs.get('required', False):
+            dests = [item.lstrip("-") for item in args]
+            for item in dests:
+                value = config.get(item, None)
+                if value is not None:
+                    kwargs["default"] = value
+                    kwargs.pop("required", None)
+                    break
+
         parser.add_argument(*args, **kwargs)
 
 def print_response(response):
@@ -327,8 +367,6 @@ add_parser_args(parser, 'common')
 add_parser_args(parser, progname)
 args = parser.parse_args()
 
-logger.info("Args: %s" % args)
-
 if progname in nonProjectMethods:
     args.poll = False
 
@@ -340,25 +378,29 @@ if hasattr(args, "files") and not args.files:
 
 verbose = args.verbose
 
-apiurl = "http://%s:5005/api" % args.serverIP
+config.update(args.__dict__)
+
+logger.info("Config: %s" % config)
+
+apiurl = "http://%s:5005/api" % config.get("serverIP", None)
 logger.info("Using service at %s" % apiurl)
 proxy = ServiceProxy(apiurl)
 apifunc = getattr(proxy.App, progname)
 
 params = parameters[progname].get('params', [])
-apiparams = {param: getattr(args, param) for param in params}
+apiparams = {param: config.get(param, None) for param in params}
 
 if progname != "poll":
     response = apifunc(**apiparams)
 
     retCode = print_response(response)
 
-    if not args.poll:
+    if not config.get("poll", False):
         sys.exit(retCode)
 
     uuid = response['id']
 else:
-    uuid = args.id
+    uuid = config.get("id", None)
 
 sleepTime = 0
 while True:
