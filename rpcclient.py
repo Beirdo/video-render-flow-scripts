@@ -42,7 +42,7 @@ except Exception:
     pass
 
 try:
-    config.update({k: configData.get("progname", k) for k in configData.options("progname")})
+    config.update({k: configData.get(progname, k) for k in configData.options(progname)})
 except Exception:
     pass
 
@@ -69,6 +69,13 @@ parameters = {
                 "kwargs": {
                     "action": "store_true",
                     "help": "Use verbose mode",
+                }
+            },
+            {
+                "args": ["--dryrun", "-n"],
+                "kwargs": {
+                    "action": "store_true",
+                    "help": "Dry run mode - don't contact RPC server",
                 }
             },
             {
@@ -328,15 +335,19 @@ def add_parser_args(parser, progname):
 
         args = arg.get('args', [])
         kwargs = arg.get('kwargs', {})
+        type_ = kwargs.get('type', None)
 
-        if kwargs.get('required', False):
-            dests = [item.lstrip("-") for item in args]
-            for item in dests:
-                value = config.get(item, None)
-                if value is not None:
-                    kwargs["default"] = value
+        dests = [item.lstrip("-") for item in args]
+        for item in dests:
+            value = config.get(item, None)
+            if value is not None:
+                if type_ is not None:
+                    value = type_(value)
+                kwargs["default"] = value
+
+                if kwargs.get('required', False):
                     kwargs.pop("required", None)
-                    break
+                break
 
         parser.add_argument(*args, **kwargs)
 
@@ -381,6 +392,9 @@ verbose = args.verbose
 config.update(args.__dict__)
 
 logger.info("Config: %s" % config)
+
+if args.dryrun:
+    sys.exit(0)
 
 apiurl = "http://%s:5005/api" % config.get("serverIP", None)
 logger.info("Using service at %s" % apiurl)
