@@ -336,6 +336,7 @@ def add_parser_args(parser, progname):
         args = arg.get('args', [])
         kwargs = arg.get('kwargs', {})
         type_ = kwargs.get('type', None)
+        action = kwargs.get('action', "store")
 
         dests = [item.lstrip("-") for item in args]
         for item in dests:
@@ -343,6 +344,12 @@ def add_parser_args(parser, progname):
             if value is not None:
                 if type_ is not None:
                     value = type_(value)
+
+                if action == "store_true":
+                    value = (value == "True")
+                if action == "store_false":
+                    value = (value != "False")
+
                 kwargs["default"] = value
 
                 if kwargs.get('required', False):
