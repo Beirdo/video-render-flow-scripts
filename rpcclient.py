@@ -404,9 +404,9 @@ else:
 
 sleepTime = 0
 while True:
+    sleepTime = max(min(sleepTime * 2, 256), 1)
     logger.info("Sleeping for %ss" % sleepTime)
     time.sleep(sleepTime)
-    sleepTime = max(min(sleepTime * 2, 300), 10)
 
     response = proxy.App.poll(id=uuid)
     retCode = print_response(response)
