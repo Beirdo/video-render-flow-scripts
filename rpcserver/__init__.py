@@ -375,7 +375,7 @@ class HandlerThread(Thread):
     def make_slideshow(self, myId, project, files, duration=5,
                        outfile="slideshow.mp4"):
         command = ["make_slideshow.py", "--project", project, "--duration",
-                   duration, "--outfile", outfile]
+                   str(duration), "--outfile", outfile]
         command.extend(files)
         self.execCommand(command, myId)
 
