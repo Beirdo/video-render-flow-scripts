@@ -541,7 +541,7 @@ def upload_to_youtube(project, outfile="output.mp4", title="Title",
 def archive_to_s3(**kwargs):
     return launch_thread("archive_to_s3", kwargs)
 
-@jsonrpc.method("App.make_slideshow(project=String, duration=Number, outfile=String, files=Array[String]) -> String",
+@jsonrpc.method("App.make_slideshow(project=String, duration=Number, outfile=String, files=Array) -> String",
                 validate=True)
 def make_slideshow(**kwargs):
     return launch_thread("make_slideshow", kwargs)
