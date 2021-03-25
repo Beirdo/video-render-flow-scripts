@@ -304,6 +304,36 @@ parameters = {
             },
         ],
     },
+    "make_slideshow": {
+        "description": "Create a slideshow from images",
+        "params": ["project", "duration", "outfile", "files"],
+        "arguments": [
+            {
+                "args": ["--outfile", '-o'],
+                "kwargs": {
+                    "action": "store",
+                    "required": True,
+                    "help": "Set the output filename",
+                }
+            },
+            {
+                "args": ["--duration", "-D"],
+                "kwargs": {
+                    "action": "store",
+                    "help": "Duration of each image in slideshow",
+                    "type": int,
+                    "default": 5,
+                }
+            },
+            {
+                "args": ["files"],
+                "kwargs": {
+                    "nargs": argparse.REMAINDER,
+                    "help": "Image files"
+                }
+            },
+        ],
+    },
     "poll": {
         "description": "Poll for completion of a task",
         "params": ["id"],

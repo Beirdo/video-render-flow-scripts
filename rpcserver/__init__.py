@@ -42,6 +42,7 @@ queueMap = {
     "render_edl": "cpu-bound",
     "upload_to_youtube": "external-network-bound",
     "archive_to_s3": "external-network-bound",
+    "make_slideshow": "cpu-bound",
 }
 
 handlerThreads = {}
@@ -371,6 +372,13 @@ class HandlerThread(Thread):
             command.append("--accelerate")
         self.execCommand(command, myId)
 
+    def make_slideshow(self, myId, project, files, duration=5,
+                       outfile="slideshow.mp4"):
+        command = ["make_slideshow.py", "--project", project, "--duration",
+                   duration, "--outfile", outfile]
+        command.extend(files)
+        self.execCommand(command, myId)
+
 
 def launch_thread(method, args):
     D = json.loads(extract_raw_data_request(request))
@@ -532,6 +540,12 @@ def upload_to_youtube(project, outfile="output.mp4", title="Title",
                 validate=True)
 def archive_to_s3(**kwargs):
     return launch_thread("archive_to_s3", kwargs)
+
+@jsonrpc.method("App.make_slideshow(project=String, duration=Number, outfile=String, files=Array[String]) -> String",
+                validate=True)
+def make_slideshow(**kwargs):
+    return launch_thread("make_slideshow", kwargs)
+
 
 
 @jsonrpc.method("App.poll(id=String) -> Object", validate=True)
