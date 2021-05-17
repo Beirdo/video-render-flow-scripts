@@ -72,7 +72,10 @@ class OutputThread(Thread):
         fd = self.handlers[id_]['pipe']
         self.idMap[fd] = id_
         logger.info("Adding %s (%s)" % (fd, id_))
-        self.sel.register(fd, selectors.EVENT_READ, self.read)
+        try:
+            self.sel.register(fd, selectors.EVENT_READ, self.read)
+        except KeyError:
+            pass
 
     def removeId(self, id_):
         fd = self.handlers[id_]['pipe']
