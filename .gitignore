@@ -1,6 +1,7 @@
 *.bak
 *.swp
 __pycache__/
+venv/
 aws-config.json
 client_secrets.json
 upload_video.py-oauth2.json

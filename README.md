@@ -18,3 +18,10 @@ Workflow
 10) Post output video to YouTube
 11) (if needed) Sync entire folder structure to render server
 12) Backup output video from render server to S3
+
+
+Install instructions:
+------------------
+1) apt install python3-pip python3-pgmagick python3-gunicorn gunicorn \
+	nginx ges1.0-* gstreamer1.0-* mediainfo ffmpeg
+2) pip install -r requirements.txt
