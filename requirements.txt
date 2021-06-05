@@ -1,8 +1,8 @@
 boto3
 pymediainfo
 bs4
-Flask
-Flask-JSONRPC
+Flask==2.0.1
+Flask-JSONRPC==1.1.0
 google-api-python-client
 google-auth
 google-auth-oauthlib

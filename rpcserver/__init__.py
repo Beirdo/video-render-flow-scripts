@@ -4,7 +4,6 @@
 import logging
 from flask import Flask, request
 from flask_jsonrpc import JSONRPC
-from flask_jsonrpc.helpers import extract_raw_data_request
 import os
 import sys
 import shutil
@@ -15,6 +14,7 @@ from threading import Thread, Lock
 from queue import Queue
 import time
 import selectors
+from typing import List, Dict, Any
 
 logdir = "/opt/video/render/logs"
 logfile = os.path.join(logdir, "rpcserver.log")
@@ -102,12 +102,12 @@ class OutputThread(Thread):
 
 
 def get_remote_ip(remoteIP=None):
-    logger.info("Remote IP: %s" % remoteIP)
+    logger.debug("Remote IP: %s" % remoteIP)
     if not remoteIP or remoteIP == '""':
-        logger.info(dir(request))
-        logger.info(request.__dict__)
+        logger.debug(dir(request))
+        logger.debug(request.__dict__)
         remoteIP = request.environ.get("HTTP_X_REAL_IP",  None)
-    logger.info("Remote IP: %s" % remoteIP)
+    logger.debug("Remote IP: %s" % remoteIP)
     if not remoteIP or remoteIP == "localhost":
         remoteIP = "127.0.0.1"
     logger.info("Remote IP: %s" % remoteIP)
@@ -384,7 +384,7 @@ class HandlerThread(Thread):
 
 
 def launch_thread(method, args):
-    D = json.loads(extract_raw_data_request(request))
+    D = json.loads(request.data)
     id_ = D.get('id', None)
     if not id_:
         raise Exception("No ID found, screw this")
@@ -428,11 +428,10 @@ path += ":/opt/video/render/scripts"
 os.environ['PATH'] = path
 
 app = Flask(__name__)
-jsonrpc = JSONRPC(app, '/api', enable_web_browsable_api=True)
+jsonrpc = JSONRPC(app, '/api', enable_web_browsable_api=False)
 
-@jsonrpc.method("App.upload_inputs(project=String, remoteIP=String, force=Boolean) -> String",
-                validate=True)
-def upload_inputs(project, remoteIP=None, force=False):
+@jsonrpc.method("App.upload_inputs", validate=True)
+def upload_inputs(project: str, remoteIP: str = None, force: bool = False) -> str:
     remoteIP = get_remote_ip(remoteIP)
     if remoteIP == '127.0.0.1':
         return "This is a local request, nothing to do"
@@ -444,9 +443,8 @@ def upload_inputs(project, remoteIP=None, force=False):
     }
     return launch_thread("upload_inputs", args)
 
-@jsonrpc.method("App.convert_inputs(project=String, files=Array, factor=Number) -> String",
-                validate=True)
-def convert_inputs(project, files=None, factor=0.5):
+@jsonrpc.method("App.convert_inputs", validate=True)
+def convert_inputs(project: str, files: List[str] = None, factor: float = 0.5) -> str:
     args = {
         "project": project,
         "files": files,
@@ -454,9 +452,8 @@ def convert_inputs(project, files=None, factor=0.5):
     }
     return launch_thread("convert_inputs", args)
 
-@jsonrpc.method("App.download_editables(project=String, remoteIP=String, force=Boolean) -> String",
-                validate=True)
-def download_editables(project, remoteIP=None, force=False):
+@jsonrpc.method("App.download_editables", validate=True)
+def download_editables(project: str, remoteIP: str = None, force: bool = False) -> str:
     remoteIP = get_remote_ip(remoteIP)
     if remoteIP == '127.0.0.1':
         return "This is a local request, nothing to do"
@@ -468,9 +465,8 @@ def download_editables(project, remoteIP=None, force=False):
     }
     return launch_thread("download_editables", args)
 
-@jsonrpc.method("App.download_proxies(project=String, remoteIP=String, force=Boolean) -> String",
-                validate=True)
-def download_proxies(project, remoteIP=None, force=False):
+@jsonrpc.method("App.download_proxies", validate=True)
+def download_proxies(project: str, remoteIP: str = None, force: bool = False) -> str:
     remoteIP = get_remote_ip(remoteIP)
     if remoteIP == '127.0.0.1':
         return "This is a local request, nothing to do"
@@ -482,9 +478,8 @@ def download_proxies(project, remoteIP=None, force=False):
     }
     return launch_thread("download_proxies", args)
 
-@jsonrpc.method("App.upload_edl(project=String, edlfile=String, remoteIP=String) -> String",
-                validate=True)
-def upload_edl(project, edlfile="edl.xges", remoteIP=None):
+@jsonrpc.method("App.upload_edl", validate=True)
+def upload_edl(project: str, edlfile: str = "edl.xges", remoteIP: str = None) -> str:
     remoteIP = get_remote_ip(remoteIP)
     if remoteIP == '127.0.0.1':
         return "This is a local request, nothing to do"
@@ -496,9 +491,8 @@ def upload_edl(project, edlfile="edl.xges", remoteIP=None):
     }
     return launch_thread("upload_edl", args)
 
-@jsonrpc.method("App.upload_proxy_edl(project=String, edlfile=String, remoteIP=String) -> String",
-                validate=True)
-def upload_proxy_edl(project, edlfile="edl.xges", remoteIP=None):
+@jsonrpc.method("App.upload_proxy_edl", validate=True)
+def upload_proxy_edl(project: str, edlfile: str = "edl.xges", remoteIP: str = None) -> str:
     remoteIP = get_remote_ip(remoteIP)
     if remoteIP == '127.0.0.1':
         return "This is a local request, nothing to do"
@@ -510,10 +504,8 @@ def upload_proxy_edl(project, edlfile="edl.xges", remoteIP=None):
     }
     return launch_thread("upload_proxy_edl", args)
 
-@jsonrpc.method("App.render_edl(project=String, edlfile=String, outfile=String, proxy=Boolean, mode=String) -> String",
-                validate=True)
-def render_edl(project, edlfile="edl.xges", outfile="output.mp4", proxy=False,
-               mode='pitivi'):
+@jsonrpc.method("App.render_edl", validate=True)
+def render_edl(project: str, edlfile: str = "edl.xges", outfile: str = "output.mp4", proxy: bool = False, mode: str = 'pitivi') -> str:
     args = {
         "project": project,
         "edlfile": edlfile,
@@ -523,10 +515,9 @@ def render_edl(project, edlfile="edl.xges", outfile="output.mp4", proxy=False,
     }
     return launch_thread("render_edl", args)
 
-@jsonrpc.method("App.upload_to_youtube(project=String, outfile=String, title=String, description=String, category=Number, keywords=String) -> String",
-                validate=True)
-def upload_to_youtube(project, outfile="output.mp4", title="Title",
-                      description="Description", category=28, keywords="none"):
+@jsonrpc.method("App.upload_to_youtube", validate=True)
+def upload_to_youtube(project: str, outfile: str = "output.mp4", title: str = "Title",
+        description: str = "Description", category: int = 28, keywords: str = "none") -> str:
     args = {
         "project": project,
         "outfile": outfile,
@@ -539,20 +530,32 @@ def upload_to_youtube(project, outfile="output.mp4", title="Title",
     }
     return launch_thread("upload_to_youtube", args)
 
-@jsonrpc.method("App.archive_to_s3(project=String, skip=Boolean, inputs=Boolean, delete=Boolean, accelerate=Boolean) -> String",
-                validate=True)
-def archive_to_s3(**kwargs):
-    return launch_thread("archive_to_s3", kwargs)
+@jsonrpc.method("App.archive_to_s3", validate=True)
+def archive_to_s3(project: str, skip: bool, inputs: bool, delete: bool, accelerate: bool) -> str:
+    args = {
+        "project": project,
+        "skip": skip,
+        "inputs": inputs,
+        "delete": delete,
+        "accelerate": accelerate,
+    }
+    return launch_thread("archive_to_s3", args)
 
 @jsonrpc.method("App.make_slideshow(project=String, duration=Number, outfile=String, files=Array) -> String",
                 validate=True)
-def make_slideshow(**kwargs):
-    return launch_thread("make_slideshow", kwargs)
+def make_slideshow(project: str, duration: float, outfile: str, files: List[str]) -> str:
+    args = {
+        "project": project,
+        "duration": duration,
+        "outfile": outfile,
+        "files": files,
+    }
+    return launch_thread("make_slideshow", args)
 
 
 
-@jsonrpc.method("App.poll(id=String) -> Object", validate=True)
-def poll(id):
+@jsonrpc.method("App.poll", validate=True)
+def poll(id: str) -> Dict[str, Any]:
     global handlers
     logger.info("Polling id %s" % id)
     if id not in handlers:
@@ -580,8 +583,8 @@ def poll(id):
 
     return result
 
-@jsonrpc.method("App.list_outstanding() -> Array", validate=True)
-def list_outstanding():
+@jsonrpc.method("App.list_outstanding", validate=True)
+def list_outstanding() -> List[str]:
     global handlers
     logger.info("Listing outstanding tasks")
     return list(handlers.keys())
