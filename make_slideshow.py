@@ -41,10 +41,8 @@ args = parser.parse_args()
 videodir = "/opt/video/render/video"
 projectdir = os.path.join(videodir, args.project)
 inputdir = os.path.realpath(os.path.join(projectdir, "input"))
-origdir = os.path.realpath(os.path.join(projectdir, "orig"))
 
 os.makedirs(inputdir, 0o755, exist_ok=True)
-os.makedirs(origdir, 0o755, exist_ok=True)
 
 imagefiles = []
 target_aspect = 1920 / 1080
