@@ -442,6 +442,7 @@ params = parameters[progname].get('params', [])
 apiparams = {param: config.get(param, None) for param in params}
 
 if progname != "poll":
+    print(apifunc)
     response = apifunc(**apiparams)
 
     retCode = print_response(response)

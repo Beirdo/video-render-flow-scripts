@@ -5,3 +5,9 @@ element-name=GstX264Enc
 [youtube9m]
 speed-preset=ultrafast
 bitrate=9000
+
+[youtubevbr]
+speed-preset=fast
+pass=qual
+quantizer=25
+bframes=2

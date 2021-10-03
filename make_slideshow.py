@@ -4,9 +4,10 @@
 import logging
 import sys
 import os
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from argparse import ArgumentParser, REMAINDER
 from subprocess import Popen, PIPE, STDOUT
+from pymediainfo import MediaInfo
 
 FORMAT = "%(asctime)s: %(name)s:%(lineno)d (%(threadName)s) - %(levelname)s - %(message)s"
 logging.basicConfig(format=FORMAT)
@@ -40,32 +41,102 @@ args = parser.parse_args()
 videodir = "/opt/video/render/video"
 projectdir = os.path.join(videodir, args.project)
 inputdir = os.path.realpath(os.path.join(projectdir, "input"))
-tmpdir = os.path.realpath(os.path.join(projectdir, "tmp"))
+origdir = os.path.realpath(os.path.join(projectdir, "orig"))
+
 os.makedirs(inputdir, 0o755, exist_ok=True)
-os.makedirs(tmpdir, 0o755, exist_ok=True)
+os.makedirs(origdir, 0o755, exist_ok=True)
 
-with NamedTemporaryFile("w+", dir=inputdir, suffix=".txt", delete=False) as tf:
-    for file_ in args.files:
-        tf.write("file '%s'\n" % file_)
-        tf.write("duration %d\n" % args.duration)
-    tf.write("file '%s'\n" % args.files[-1])
-    tfName = tf.name
+imagefiles = []
+target_aspect = 1920 / 1080
 
-with NamedTemporaryFile(dir=tmpdir, suffix=".mp4") as mf:
-    command = ["/usr/bin/ffmpeg", "-y", "-f", "concat", "-i", tfName,
-               "-vsync", "vfr", "-pix_fmt", "yuv420p", mf.name]
-    retCode = execCommand(command)
-    os.unlink(tfName)
+with TemporaryDirectory(dir=projectdir) as tmpdir:
+    for filename in args.files:
+        infile = os.path.join(inputdir, filename)
+        tmpfile = os.path.join(tmpdir, filename)
+        (base, ext) = os.path.splitext(filename)
+        basefile = "%s.png" % base
+        outfile = os.path.join(tmpdir, basefile)
 
-    if retCode != 0:
-        sys.exit(retCode)
+        if not os.path.exists(infile):
+            continue
 
+        with open(infile, "rb") as fi:
+            with open(tmpfile, "wb") as fo:
+                fo.write(fi.read())
 
-    command = ["ffmpeg", "-y", "-f", "lavfi", "-i", 
-               "anullsrc=channel_layout=stereo:sample_rate=48000",
-               "-i", mf.name, "-c:v", "copy", "-c:a", "aac", "-shortest",
-               os.path.join(inputdir, args.outfile)]
-    retCode = execCommand(command)
-    if retCode != 0:
-        sys.exit(retCode)
+        command = ["exifautotran", tmpfile]
+        retCode = execCommand(command)
+        if retCode != 0:
+            continue
 
+        media_info = MediaInfo.parse(tmpfile)
+        for track in media_info.tracks:
+            if track.track_type != 'Image':
+                continue
+
+            width = track.width
+            height = track.height
+
+            # Scale down to 1920x1080 max, keeping aspect ratio
+            aspect = width / height
+
+            scale = 1.0
+
+            if aspect >= target_aspect:
+                # too wide
+                scale = 1920 / width
+            elif aspect < target_aspect:
+                # too high
+                scale = 1080 / height
+
+            # Never scale UP an image, only down
+            if scale > 1.0:
+                scale = 1.0
+
+            scale_width = ((width * scale) // 2) * 2
+            scale_height = ((height * scale) // 2) * 2
+
+            pad_x = (1920 - scale_width) // 2
+            pad_y = (1080 - scale_height) // 2
+
+            command = ["convert", tmpfile, 
+                       "-resize", "%dx%d!" % (scale_width, scale_height),
+                       "-bordercolor", "black",
+                       "-border", "%dx%d" % (pad_x, pad_y),
+                       outfile]
+            retCode = execCommand(command)
+            if retCode != 0:
+                continue
+
+        imagefiles.append(basefile) 
+
+    tfName = None
+    with NamedTemporaryFile("w+", dir=tmpdir, suffix=".txt",
+                            delete=False) as tf:
+        for file_ in imagefiles:
+            tf.write("file '%s'\n" % file_)
+            tf.write("duration %d\n" % args.duration)
+        tf.write("file '%s'\n" % args.files[-1])
+        tfName = tf.name
+
+    with NamedTemporaryFile(dir=tmpdir, suffix=".mp4") as mf:
+        with NamedTemporaryFile(dir=tmpdir, suffix=".mp4") as mf2:
+            command = ["ffmpeg", "-y", "-f", "concat", "-i", tfName,
+                       "-vsync", "vfr", "-pix_fmt", "yuv420p", mf.name]
+            retCode = execCommand(command)
+            if retCode != 0:
+                sys.exit(retCode)
+
+            command = ["ffmpeg", "-y", "-i", mf.name, "-c:v", "h264", "-r", "30",
+                       mf2.name]
+            retCode = execCommand(command)
+            if retCode != 0:
+                sys.exit(retCode)
+
+            command = ["ffmpeg", "-y", "-f", "lavfi", "-i", 
+                       "anullsrc=channel_layout=stereo:sample_rate=48000",
+                       "-i", mf2.name, "-c:v", "copy", "-c:a", "aac", "-shortest",
+                       os.path.join(inputdir, args.outfile)]
+            retCode = execCommand(command)
+            if retCode != 0:
+                sys.exit(retCode)
